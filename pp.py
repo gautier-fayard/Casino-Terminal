@@ -525,6 +525,9 @@ def demander_mise(etat):
         if saisie == 'dr':
             pp_plus.basculer_dr(etat)
             return None
+        if saisie in ('df', 'defi', 'défi'):
+            pp_plus.afficher_defi(etat)
+            return None
         if saisie in ('x', '2x'):
             if defaut < 1:
                 print(" Aucune mise précédente.")
@@ -1469,6 +1472,9 @@ def demander_paris_roulette(etat):
             return None
         if saisie == 'dr':
             pp_plus.basculer_dr(etat)
+            continue
+        if saisie in ('df', 'defi', 'défi'):
+            pp_plus.afficher_defi(etat)
             continue
         if saisie in ('h', 'hist'):
             afficher_historique(etat, True)

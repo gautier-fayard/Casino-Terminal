@@ -6,6 +6,7 @@ Ce module est charge par pp.py (installer). Il ne se lance pas tout seul.
 import json
 import math
 import random
+import sys
 import time
 from datetime import date
 
@@ -19,7 +20,11 @@ NEEDED = ['fmt', 'pause', 'corriger', 'debloquer', 'compter', 'Quitter', 'lire_m
           'afficher_stats', 'afficher_objectifs', 'changer_jeu', 'PAUSE', 'DEPART', 'OBJECTIFS', 'RECOMPENSES',
           'LIBELLES']
 
-POT_DEPART = 5000
+POT_DEPART = 20000
+JACKPOT_PART = 0.03        # part de chaque mise versée dans la cagnotte
+JACKPOT_DIVISEUR = 600000  # chance par manche = mise / 600000 (mise 100 = 1 chance sur 6000)
+JACKPOT_PLAFOND = 1000     # au-delà de cette mise, la chance n'augmente plus
+JACKPOT_MIN = 10           # mise minimale pour être éligible
 TOURNOI_DEFAUT = 30
 
 
@@ -87,6 +92,46 @@ def dormir(t):
     time.sleep(t)
 
 
+def entree_pressee():
+    """True si une touche (Entrée) a été pressée pendant l'animation ; vide le tampon clavier."""
+    if msvcrt is not None:
+        if msvcrt.kbhit():
+            while msvcrt.kbhit():
+                msvcrt.getwch()
+            return True
+        return False
+    try:
+        import select
+        if select.select([sys.stdin], [], [], 0)[0]:
+            return bool(sys.stdin.readline())
+    except Exception:
+        pass
+    return False
+
+
+def vider_clavier():
+    """Supprime les touches pressées pendant une séquence non passable (évite les mises accidentelles)."""
+    try:
+        for _ in range(50):
+            if not entree_pressee():
+                break
+    except Exception:
+        pass
+
+
+def dormir_ou_passer(t):
+    """Attend t secondes par petits pas. Retourne True si Entrée a été pressée (on saute l'attente)."""
+    ecoule = 0.0
+    while True:
+        if entree_pressee():
+            return True
+        if ecoule >= t:
+            return False
+        pas = min(0.02, t - ecoule)
+        dormir(pas)
+        ecoule += pas
+
+
 def transformer(saisie, f):
     """Applique f aux montants d'une saisie 'code montant code montant'."""
     tokens = saisie.replace(',', ' ').split()
@@ -115,6 +160,9 @@ def commande_globale(etat, saisie):
         return 'jeu'
     if saisie == 'dr':
         basculer_dr(etat)
+        return True
+    if saisie in ('df', 'defi', 'défi'):
+        afficher_defi(etat)
         return True
     if saisie == 'hl':
         basculer_hilo(etat)
@@ -164,20 +212,31 @@ def double_ou_rien(etat, gain):
 
 # ============================================================ jackpot
 
+def chance_jackpot(engage):
+    if engage < JACKPOT_MIN:
+        return 0.0
+    return min(engage, JACKPOT_PLAFOND) / JACKPOT_DIVISEUR
+
+
 def jackpot(etat, engage):
-    """Alimente la cagnotte (0,5 % des mises) et la déclenche très rarement (1 chance sur 2 500)."""
+    """Alimente la cagnotte (3 % de la mise) puis tire le jackpot : chance = mise / 600 000 (plafonnée)."""
     if etat.get('tournoi'):
         return
-    etat['jackpot'] = round(etat.get('jackpot', POT_DEPART) + engage * 0.005, 2)
-    if engage >= 10 and random.random() < 1 / 2500:
+    etat['jackpot'] = round(etat.get('jackpot', POT_DEPART) + engage * JACKPOT_PART, 2)
+    p = chance_jackpot(engage)
+    if p and random.random() < p:
         gain = round(etat['jackpot'])
-        pause()
+        vider_clavier()
         print("\n Jackpot progressif !")
-        pause()
+        dormir(1.2)
+        print(f" Le tirage du jackpot est tombé sur ta mise de {fmt(engage)} (1 chance sur {round(1 / p)} par manche).")
+        dormir(1.5)
         print(f" +{fmt(gain)} jetons\n")
+        dormir(1.0)
+        vider_clavier()
         etat['jetons'] += gain
         etat['bonus'] += gain
-        etat['jackpot'] = POT_DEPART
+        etat['jackpot'] = max(POT_DEPART, round(engage * 100))
         debloquer(etat, 'jackpot')
 
 
@@ -219,6 +278,7 @@ def verifier_defi(etat):
 def afficher_defi(etat):
     d = etat.get('defi')
     if not d:
+        print("Pas de défi du jour dans ce mode.")
         return
     if etat.get('defi_fait') == date.today().isoformat():
         print("Défi du jour : réussi")
@@ -606,6 +666,8 @@ GAINS_SCATTER = {3: 2, 4: 10, 5: 50}  # x la mise totale
 LIGNES = [(0, 0, 0, 0, 0), (1, 1, 1, 1, 1), (2, 2, 2, 2, 2), (0, 1, 2, 1, 0), (2, 1, 0, 1, 2)]
 TOURS_GRATUITS = 8
 MULT_GRATUIT = 2
+RELANCE_TOURS = {3: 5, 4: 8, 5: 12}  # tours supplémentaires si 3 / 4 / 5 SCT pendant les tours gratuits
+TOURS_MAX = 40
 
 
 def tourner():
@@ -660,17 +722,30 @@ def afficher_grille_slot(grille):
         print("   " + " | ".join(grille[r][row] for r in range(5)))
 
 
-def animer(grille):
+def animer(grille, passable=True):
+    """Animation rouleau par rouleau. Entrée pendant le tirage : affichage immédiat (sauf bonus). True si sauté."""
+    if not passable:
+        vider_clavier()
+        attente = lambda t: (dormir(t), False)[1]
+    else:
+        attente = dormir_ou_passer
     arret = []
     for stade in range(5):
         for _ in range(4):
             vue = arret + [random.choice(POOL) for _ in range(5 - stade)]
             print("\r   " + " | ".join(vue) + "   ", end="", flush=True)
-            dormir(0.07)
+            if attente(0.07):
+                print("\r" + " " * 40 + "\r", end="")
+                return True
         arret.append(grille[stade][1])
         print("\r   " + " | ".join(arret + ["   "] * (5 - len(arret))) + "   ", end="", flush=True)
-        dormir(PAUSE * 0.4)
+        if attente(PAUSE * 0.4):
+            print("\r" + " " * 40 + "\r", end="")
+            return True
     print("\r" + " " * 40 + "\r", end="")
+    if not passable:
+        vider_clavier()
+    return False
 
 
 def lignes_aide_slots():
@@ -678,6 +753,9 @@ def lignes_aide_slots():
            " Gains par ligne (x mise / 5), de gauche à droite avec 3 / 4 / 5 symboles :"]
     for sym, t in GAINS_SLOT.items():
         out.append(f"   {sym} : {t[3]} / {t[4]} / {t[5]}")
+    out.append(" Pendant le tirage, appuie sur Entrée pour afficher le résultat tout de suite (fast spin).")
+    out.append(" Le fast spin ne marche pas pendant les bonus (tours gratuits) ni pour le jackpot.")
+    out.append(f" 3 / 4 / 5 SCT pendant les tours gratuits : +{RELANCE_TOURS[3]} / +{RELANCE_TOURS[4]} / +{RELANCE_TOURS[5]} tours (max {TOURS_MAX}).")
     out.append(f" WLD remplace tout sauf SCT. 3 / 4 / 5 SCT : {GAINS_SCATTER[3]}x / {GAINS_SCATTER[4]}x / "
                f"{GAINS_SCATTER[5]}x la mise totale + {TOURS_GRATUITS} tours gratuits (lignes x{MULT_GRATUIT}).")
     return out
@@ -695,27 +773,42 @@ def jouer_slots(etat, mise):
     etat['jetons'] -= mise
     print()
     grille = tourner()
-    animer(grille)
     total, gains, scatters = gain_total_slot(grille, mise)
+    animer(grille, passable=(scatters < 3))  # le bonus ne se saute pas
     afficher_grille_slot(grille)
     _resume_slot(etat, mise, total, gains, scatters, grille)
     if scatters >= 3:
         debloquer(etat, 'slots_free')
         print(f"\n {TOURS_GRATUITS} tours gratuits (gains de lignes x{MULT_GRATUIT}) !")
         cumul = 0.0
-        for k in range(1, TOURS_GRATUITS + 1):
+        restants = TOURS_GRATUITS
+        k = 0
+        vider_clavier()
+        while restants > 0:
+            restants -= 1
+            k += 1
             dormir(PAUSE * 0.5)
             g = tourner()
             t, gl, sc = gain_total_slot(g, mise, MULT_GRATUIT)
             if sc >= 3:
-                t -= mise * GAINS_SCATTER.get(min(sc, 5), 0)  # pas de relance du scatter en tour gratuit
+                t -= mise * GAINS_SCATTER.get(min(sc, 5), 0)  # le scatter ne paie pas en tour gratuit
             cumul += t
             etat['jetons'] += t
             if t:
                 afficher_grille_slot(g)
-            print(f" Tour gratuit {k}/{TOURS_GRATUITS} : {'+' + fmt(t) if t else 'rien'}")
+            total_prevu = k + restants
+            print(f" Tour gratuit {k}/{total_prevu} : {'+' + fmt(t) if t else 'rien'}")
             _verifier_slot(etat, mise, gl, t)
-        print(f" Tours gratuits : +{fmt(cumul)}")
+            if sc >= 3 and total_prevu < TOURS_MAX:
+                en_plus = min(RELANCE_TOURS.get(min(sc, 5), 5), TOURS_MAX - total_prevu)
+                restants += en_plus
+                if not t:
+                    afficher_grille_slot(g)
+                dormir(0.6)
+                print(f" {sc} SCT : +{en_plus} tours gratuits !")
+                dormir(0.8)
+        print(f" Tours gratuits : +{fmt(cumul)} ({k} tours)")
+        vider_clavier()
     etat['jetons'] = round(etat['jetons'], 2)
     print(f" Jetons : {fmt(etat['jetons'])}\n")
     return mise
@@ -908,7 +1001,7 @@ def initialiser(etat, save):
     """Prépare les états des extensions au début d'une session de casino."""
     save = save or {}
     tournoi = etat.get('tournoi')
-    etat['jackpot'] = 0 if tournoi else save.get('jackpot', POT_DEPART)
+    etat['jackpot'] = 0 if tournoi else max(POT_DEPART, save.get('jackpot', POT_DEPART))
     etat['record_tournoi'] = save.get('record_tournoi', {})
     etat['compte_session'] = {}
     etat['dr_actif'] = save.get('dr_actif', True)
@@ -966,6 +1059,8 @@ def afficher_extra(etat):
         print(ligne_tournoi(etat))
         return
     print(f"Jackpot progressif : {fmt(etat.get('jackpot', POT_DEPART))}")
+    print(f"  3 % de chaque mise l'alimente. Chaque manche (mise >= {JACKPOT_MIN}) le tire au sort : "
+          f"chance = mise / {JACKPOT_DIVISEUR:,} (mise 100 = 1 sur {JACKPOT_DIVISEUR // 100}), plafonnée à une mise de {JACKPOT_PLAFOND}.".replace(',', ' '))
     afficher_defi(etat)
     s = etat.get('hilo_stats')
     if s and s['total']:
