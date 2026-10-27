@@ -1,0 +1,540 @@
+==========================================================================================
+  POKER TEXAS HOLD'EM : LES BASES, DE ZERO
+  Guide a lire avant de commencer les modules d'entrainement du jeu (menu 4)
+==========================================================================================
+
+Comment lire ce guide
+---------------------
+Les parties 1 a 4 sont le strict minimum : les regles, le vocabulaire, les mains.
+Les parties 5 a 9 sont le coeur de la theorie : positions, outs, cotes du pot, equite.
+Les parties 10 a 13 vont plus loin : esperance de gain, bluff, erreurs classiques.
+La partie 14 te donne un plan d'apprentissage pour utiliser le jeu.
+La partie 15 est un aide-memoire d'une page a garder sous la main.
+
+Tout est volontairement simple. Les chiffres sont des approximations utiles en jeu,
+pas des calculs exacts au centieme pres. Prends ton temps, relis les exemples.
+
+
+==========================================================================================
+1. LE DEROULEMENT D'UNE MAIN
+==========================================================================================
+
+Le Texas Hold'em se joue avec un jeu de 52 cartes, de 2 a 9 joueurs (le "6-max" = 6
+joueurs, c'est le format de ton entrainement).
+
+Chaque joueur recoit 2 cartes privees (les "hole cards"). Ensuite, 5 cartes communes
+sont posees au milieu (le "board"). Ta main finale est la meilleure combinaison de 5
+cartes parmi tes 2 cartes et les 5 du board (donc 7 cartes disponibles).
+
+Les blinds
+Il n'y a pas de mise obligatoire pour tout le monde. Deux joueurs paient des mises
+forcees avant de voir leurs cartes :
+  - la petite blinde (SB, small blind), par exemple 0,5
+  - la grosse blinde (BB, big blind), par exemple 1, c'est la mise de reference
+Une "bb" est donc l'unite de mesure. Dire "100 bb" signifie que ton tapis (stack) vaut
+100 grosses blindes. C'est la profondeur standard dans l'entrainement.
+
+Les quatre tours d'encheres
+  1. Preflop : chacun regarde ses 2 cartes, on mise. Le premier a parler est celui a
+     gauche de la grosse blinde.
+  2. Flop : on pose 3 cartes communes, nouveau tour d'encheres.
+  3. Turn : on pose une 4e carte, nouveau tour d'encheres.
+  4. River : on pose la 5e et derniere carte, dernier tour d'encheres.
+  Puis le showdown (abattage) : les joueurs restants montrent leurs cartes, la meilleure
+  main prend le pot. Si tout le monde se couche sauf un joueur, il prend le pot sans
+  rien montrer.
+
+Les actions possibles
+  - Fold (se coucher) : tu abandonnes ta main et tu perds ce que tu as deja mis.
+  - Check (parole) : tu ne mises rien, possible seulement si personne n'a mise avant.
+  - Bet (miser) : tu ouvres les encheres.
+  - Call (suivre) : tu paies exactement la mise adverse.
+  - Raise (relancer) : tu augmentes la mise.
+  - All-in : tu mises tout ton tapis.
+
+Le bouton (BTN)
+Un jeton "dealer" tourne d'un joueur a chaque main. Il decide de l'ordre de parole.
+Apres le flop, le joueur au bouton parle en dernier. C'est un avantage enorme (voir
+partie 5).
+
+
+==========================================================================================
+2. LE CLASSEMENT DES MAINS (du plus fort au plus faible)
+==========================================================================================
+
+  1. Quinte flush royale   A K Q J 10 de la meme couleur
+  2. Quinte flush          5 cartes qui se suivent, meme couleur (ex. 9 8 7 6 5 de coeur)
+  3. Carre                 4 cartes de meme valeur (ex. 7 7 7 7)
+  4. Full                  un brelan + une paire (ex. K K K 4 4)
+  5. Couleur               5 cartes de la meme couleur, pas forcement qui se suivent
+  6. Quinte (suite)        5 cartes qui se suivent, couleurs differentes
+                           (l'As peut valoir 1 : A 2 3 4 5 est la plus petite quinte)
+  7. Brelan                3 cartes de meme valeur
+  8. Double paire          deux paires differentes
+  9. Paire                 2 cartes de meme valeur
+ 10. Carte haute           aucune combinaison, on compare la plus haute carte
+
+Les couleurs n'ont jamais de valeur relative. Deux couleurs identiques = egalite.
+
+Le kicker (la "carte d'appoint")
+Si deux joueurs ont la meme combinaison, on regarde les cartes restantes pour les
+departager. Exemple : tu as A-K, l'autre a A-5, le board est A 9 6 3 2. Vous avez
+chacun une paire d'As, mais ton Roi est plus fort que son 5 : tu gagnes. On dit que
+tu as un meilleur kicker.
+
+Les "nuts"
+Ce sont la meilleure main possible sur un board donne, a un moment donne.
+
+Un point important : une main n'est pas forte ou faible dans l'absolu, elle est forte
+ou faible "sur ce board, face a ce que l'adversaire peut avoir".
+
+
+==========================================================================================
+3. LE VOCABULAIRE ESSENTIEL
+==========================================================================================
+
+  Board          les cartes communes
+  Hero           toi, dans les exemples
+  Villain        l'adversaire (le "vilain"), dans les exemples
+  Pot            la somme de toutes les mises au milieu
+  Stack / tapis  ce qu'il te reste devant toi
+  bb             grosse blinde, l'unite de mesure
+  Preflop        avant le flop
+  Postflop       apres le flop (flop, turn, river)
+  Open / ouvrir  etre le premier a miser preflop (on dit "open-raise")
+  3-bet          relancer une relance preflop (la blinde est le 1er "bet", l'open est
+                 le 2e, la relance est le 3e)
+  C-bet          continuation bet : miser au flop apres avoir ete l'agresseur preflop
+  Value bet      miser parce que tu penses avoir la meilleure main et vouloir etre paye
+  Bluff          miser avec une main qui n'a pas gagne, pour faire coucher l'adversaire
+  Tirage (draw)  main incomplete qui peut devenir forte (couleur, quinte...)
+  Out            carte qui complete ton tirage (voir partie 7)
+  Equite         ta part du pot si on distribuait toutes les cartes restantes
+                 (voir partie 9)
+  Range          l'ensemble des mains qu'un joueur peut avoir (voir partie 6)
+  EV             esperance de gain, gain moyen d'une decision (voir partie 10)
+  Suited / s     deux cartes de la meme couleur (assorties)
+  Offsuit / o    deux cartes de couleurs differentes (depareillees)
+  Connecteurs    deux cartes qui se suivent (8-9, J-10...)
+  Showdown       l'abattage, quand on montre les cartes
+  Tilt           etat emotionnel qui te fait mal jouer apres une perte
+
+
+==========================================================================================
+4. LES MAINS DE DEPART ET LEUR NOTATION
+==========================================================================================
+
+Notation des cartes
+Dans le jeu : A (As), K (Roi), Q (Dame), J (Valet), T (10). Les couleurs :
+  s = pique   h = coeur   d = carreau   c = trefle
+Exemple : "Ah Kd" = As de coeur, Roi de carreau.
+
+Notation des mains
+  AA, KK, 77     une paire
+  AKs            As-Roi assortis (suited)
+  AKo            As-Roi depareilles (offsuit)
+  A5s-A2s        tous les As assortis de A5s a A2s
+  77+            les paires de 77 jusqu'a AA
+  A9s+           A9s, ATs, AJs, AQs, AKs
+  KQo            Roi-Dame depareilles
+
+Les combos (combinaisons)
+Il y a 1326 manieres de recevoir 2 cartes. Mais beaucoup sont equivalentes. On les
+regroupe en 169 "types de mains". Le nombre de manieres de former chaque type est :
+  - une paire (ex. 77)                     : 6 combos
+  - deux cartes assorties (ex. AKs)        : 4 combos
+  - deux cartes depareillees (ex. AKo)     : 12 combos
+Conclusion utile : AKo est trois fois plus frequent que AKs, et AA est deux fois moins
+frequent que AKo.
+
+Ce qui rend une main de depart bonne
+  1. Les paires (surtout hautes).
+  2. Les grosses cartes (A, K, Q, J, T), car elles font les meilleures paires.
+  3. Etre assorties (suited) : ajoute environ 3 points d'equite, car tu peux faire une
+     couleur.
+  4. Etre connectees (8-9, 6-7) : permet de faire des quintes.
+  5. L'As avec un petit kicker assorti (A5s) : bon pour faire des couleurs "nuts".
+
+Classement approximatif, pour te donner une idee
+  - Premium : AA, KK, QQ, JJ, AKs, AKo
+  - Fortes  : TT, 99, AQs, AQo, AJs, KQs
+  - Jouables : 88-22, ATs, KJs, QJs, JTs, suited connectors (T9s, 98s, 87s...)
+  - Speculatives : petites paires, suited aces (A5s-A2s), suited connectors bas
+  - A jeter : la plupart des mains depareillees et deconnectees (J3o, 94o, T2o...)
+
+La qualite du kicker compte beaucoup. A-J est domine par A-K et A-Q : si tu touches
+une paire d'As, tu perds souvent contre un meilleur kicker.
+
+
+==========================================================================================
+5. LES POSITIONS
+==========================================================================================
+
+A 6 joueurs, dans l'ordre de parole preflop :
+  UTG (under the gun) : le 1er a parler, c'est la pire position
+  HJ  (hijack)        : 2e
+  CO  (cutoff)        : 3e
+  BTN (bouton)        : 4e, la meilleure position
+  SB  (petite blinde) : 5e
+  BB  (grosse blinde) : 6e
+Apres le flop, l'ordre change : la SB parle en premier et le bouton en dernier.
+
+Pourquoi la position compte autant
+  - Parler en dernier permet de voir ce que font les autres avant de decider. Tu as
+    plus d'information, donc tu fais moins d'erreurs.
+  - Quand tu ouvres depuis UTG, il reste 5 joueurs derriere toi qui peuvent avoir une
+    belle main. Quand tu ouvres depuis le bouton, il n'en reste que 2 (les blindes).
+  - Conclusion : plus tu es tot, plus tu dois etre selectif. Plus tu es tard, plus tu
+    peux jouer de mains.
+
+Ordres de grandeur d'une range d'ouverture a 6-max, 100 bb (approximatif) :
+  UTG ~ 14 % des mains    HJ ~ 18 %    CO ~ 23 %    BTN ~ 45 %    SB ~ 32 %
+Ces chiffres sont ceux du jeu. Ce sont des tableaux de reference raisonnables, pas une
+verite absolue : les ranges varient selon les sources et le niveau des adversaires.
+
+Une regle utile : si une main s'ouvre depuis UTG, elle s'ouvre depuis toutes les autres
+positions. Une main qui ne s'ouvre que depuis le bouton est donc une main marginale.
+
+Ouvrir de raise ou limper (suivre la grosse blinde) ?
+En poker moderne, quand personne n'a encore relance, on ouvre de relance ("raise first
+in") ou on se couche. On evite de "limper" (juste suivre). La relance donne l'initiative
+et permet de gagner le pot sans combattre.
+
+
+==========================================================================================
+6. LES RANGES : RAISONNER SUR UN ENSEMBLE DE MAINS
+==========================================================================================
+
+Le debutant se demande : "qu'est-ce que l'autre a ?". C'est une mauvaise question, car
+on ne peut jamais le savoir. La bonne question est : "quelles mains l'autre peut-il avoir,
+vu comment il a joue ?". Cet ensemble de mains s'appelle une range.
+
+Exemple : un joueur ouvre depuis UTG. Sa range est serree : surtout des paires, des
+grosses cartes, quelques suited connectors. Il n'a presque jamais 72o. Si le flop est
+K-7-2 et qu'il mise, sa range contient beaucoup de Rois et de paires hautes. Si le meme
+joueur ouvre depuis le bouton, sa range est beaucoup plus large et contient plus de
+mains faibles et de bluffs.
+
+On n'essaie donc jamais de "lire" une main exacte. On estime une fourchette, puis on
+calcule notre performance contre cette fourchette (c'est l'equite, partie 9).
+
+Un entrainement tres utile : regarder la grille des ranges dans le jeu (touche g) et la
+memoriser position par position.
+
+
+==========================================================================================
+7. LES OUTS (le concept le plus important pour debuter)
+==========================================================================================
+
+Qu'est-ce qu'un out ?
+Un out est une carte restante dans le paquet qui, si elle sort, ameliore ta main au point
+de la rendre (probablement) gagnante.
+
+Exemple concret
+Tu as A de coeur et 9 de coeur. Le flop est K de coeur, 7 de coeur, 2 de pique.
+Tu as 4 coeurs (2 dans ta main, 2 sur le board). Il te manque 1 coeur pour faire une
+couleur. Il y a 13 coeurs dans le paquet, tu en vois 4, donc il en reste 9. Ces 9 cartes
+sont tes outs. Ce type de situation s'appelle un tirage couleur (flush draw).
+
+Les outs a connaitre par coeur
+  Tirage couleur (4 cartes de la meme couleur)       9 outs
+  Quinte ouverte (4 cartes qui se suivent, ex. 5-6-7-8, on peut completer
+    des deux cotes avec un 4 ou un 9)                 8 outs
+  Quinte ventrale / gutshot (il manque une carte au milieu, ex. 5-6-8-9,
+    il faut un 7)                                     4 outs
+  Deux surcartes (tu as A-K et le board est 9-5-2, tu veux une paire d'As
+    ou de Rois)                                       6 outs
+  Une surcarte (tu as A-J, le board est 9-5-2)        3 outs
+  Une paire en main qui cherche un brelan (tu as 77) 2 outs
+  Une paire faible qui cherche une double paire ou un brelan : en general 5 outs
+    (cartes qui font double paire ou brelan)
+  Tirage couleur + quinte ouverte ensemble            15 outs
+  Tirage couleur + gutshot                            12 outs
+  Gutshot + deux surcartes                            10 outs
+
+Attention aux doublons : si une carte fait a la fois ta couleur et ta quinte, elle ne
+compte qu'une seule fois. C'est pour ca que 9 + 8 ne font pas 17 mais 15.
+
+Les "mauvais outs"
+Certains outs te donnent une main qui n'est pas assez forte. Exemple : tu fais une
+couleur basse alors qu'un adversaire peut avoir une couleur plus haute. Ou tu touches
+ta quinte mais le board est apparie et un adversaire peut avoir un full. Dans la
+pratique on retire parfois 1 ou 2 outs pour tenir compte de ces cas.
+
+Le jeu utilise une definition simple : un out est une carte qui ameliore la categorie de
+ta main (paire -> brelan, rien -> quinte...). C'est une bonne base pour apprendre.
+Dans la vraie vie, la qualite de l'out compte aussi, tu l'apprendras avec l'experience.
+
+
+==========================================================================================
+8. LA REGLE DU 4 ET DU 2 : TRANSFORMER LES OUTS EN POURCENTAGE
+==========================================================================================
+
+Une fois que tu as compte tes outs, tu veux savoir quelle est ta chance de toucher.
+
+  - Au FLOP (il reste 2 cartes a venir, le turn et la river) :
+        chance de toucher = nombre d'outs x 4 (en %)
+  - Au TURN (il reste 1 carte a venir, la river) :
+        chance de toucher = nombre d'outs x 2 (en %)
+
+Exemples
+  Tirage couleur au flop : 9 outs x 4 = 36 %. (La vraie valeur est 35 %.)
+  Tirage couleur au turn : 9 outs x 2 = 18 %. (La vraie valeur est 19,6 %.)
+  Quinte ouverte au flop : 8 outs x 4 = 32 %. (Vraie valeur : 31,5 %.)
+  Gutshot au flop        : 4 outs x 4 = 16 %. (Vraie valeur : 16,5 %.)
+
+Correction pour les gros tirages
+Au flop, quand tu as plus de 8 outs, la regle x4 surestime. Retire (outs - 8) :
+  15 outs au flop : 15 x 4 = 60, moins (15 - 8) = 7, donne 53 %. (Vraie valeur : 54 %.)
+  12 outs au flop : 12 x 4 = 48, moins 4, donne 44 %. (Vraie valeur : 45 %.)
+
+Pourquoi ces chiffres ?
+Au turn, il reste 47 cartes inconnues, donc chaque out vaut 1/47, soit environ 2,1 %,
+donc "x2". Au flop, tu as deux chances de toucher, ce qui fait environ 4 % par out.
+La regle est une simplification qui marche tres bien.
+
+Limite a retenir
+Cette chance est celle de TOUCHER ton tirage. Elle ne dit pas si tu gagnes ensuite. Si
+tu touches ta couleur, tu peux quand meme perdre contre une couleur plus haute. Et ta
+main peut aussi etre bonne sans toucher. L'equite reelle (partie 9) tient compte de tout
+ca.
+
+
+==========================================================================================
+9. L'EQUITE
+==========================================================================================
+
+Definition
+L'equite est la part du pot qui te revient "en moyenne", si on distribuait toutes les
+cartes restantes sans qu'il y ait d'autre mise. Une equite de 40 % veut dire : si on
+rejouait cette situation tres souvent, tu gagnerais le pot 40 fois sur 100 (en comptant
+les egalites comme une demi-victoire).
+
+Exemples de repere (ce sont des ordres de grandeur)
+  AA contre KK preflop                       ~ 82 % pour AA
+  AKs contre QQ preflop                      ~ 46 % pour AKs (presque 50/50)
+  Une paire contre deux cartes plus hautes   ~ 55 % pour la paire (le "coinflip")
+  Deux cartes hautes contre une paire basse  ~ 45 % pour les deux cartes
+  Tirage couleur au flop, sans rien d'autre  ~ 35 %
+  Une bonne paire au flop contre une range   ~ 60 a 80 %
+  Rien du tout au flop contre une range      ~ 10 a 20 %
+
+Equite contre une main et contre une range
+Contre une main precise, l'equite est facile a calculer avec un logiciel. Contre une
+range, on fait la moyenne contre toutes les mains de la range. C'est ce que le module
+"Estimer son equite" fait pour toi. Ton but, ce n'est pas de calculer a la main : c'est
+de te donner des reperes pour avoir une estimation approximative en jouant.
+
+Comment estimer ton equite sans logiciel
+  1. Regarde ce que tu as deja (paire, deux paires, rien, tirage).
+  2. Compte tes outs si tu as un tirage et applique x4 ou x2.
+  3. Pense a la force de la range d'en face : un adversaire qui ouvre de UTG a de
+     meilleures mains qu'un adversaire qui ouvre du bouton.
+  4. Donne-toi une fourchette plutot qu'un chiffre exact.
+
+
+==========================================================================================
+10. LES COTES DU POT (POT ODDS)
+==========================================================================================
+
+Voici le calcul qui sert a decider entre call et fold quand on affronte une mise.
+
+L'idee
+L'adversaire mise. Tu te demandes : "est-ce que ca vaut le coup de payer pour continuer
+?". La reponse depend de deux choses :
+  - combien tu dois payer,
+  - combien tu peux gagner.
+Si tu gagnes plus souvent que ce que ton investissement exige, tu paies. Sinon tu te
+couches.
+
+Exemple pas a pas
+  Le pot contient 100. L'adversaire mise 50.
+  Le pot contient maintenant 150. Pour continuer, tu dois payer 50.
+  Si tu paies, le pot final sera 200 (100 + 50 + 50).
+  Tu mets 50 pour viser 200. Il te faut donc : 50 / 200 = 25 % de chances de gagner.
+  Si ton equite est superieure a 25 %, tu dois payer. Sinon, tu te couches.
+
+La formule
+        equite necessaire = mise a payer / (pot avant sa mise + 2 x sa mise)
+  Exemple : 50 / (100 + 2 x 50) = 50 / 200 = 25 %.
+
+La table a retenir (la mise est exprimee en fraction du pot)
+  Mise de 1/3 du pot  : tu as besoin de 20 %
+  Mise de 1/2 du pot  : tu as besoin de 25 %
+  Mise de 2/3 du pot  : tu as besoin de 29 %
+  Mise de 3/4 du pot  : tu as besoin de 30 %
+  Mise du pot entier  : tu as besoin de 33 %
+  Mise de 1,5 x pot   : tu as besoin de 38 %
+  Mise de 2 x pot     : tu as besoin de 40 %
+Plus l'adversaire mise gros, plus tu as besoin d'equite pour continuer.
+
+Application avec les outs : exemple complet
+  Tu as A-9 de coeur. Flop : K de coeur, 7 de coeur, 2 de pique. Tirage couleur.
+  Le pot est de 80, l'adversaire mise 40 (la moitie du pot).
+  1. Equite necessaire : 40 / (80 + 80) = 25 %.
+  2. Tes outs : 9 (les coeurs restants). Au flop : 9 x 4 = 36 %.
+  3. 36 % > 25 % : tu peux payer. Et tu as meme de la marge, puisqu'il te reste parfois
+     la possibilite de gagner avec une paire d'As (outs supplementaires).
+  Si l'adversaire avait mise 160 (le double du pot), il te faudrait 40 % : tu serais en
+  dessous avec 36 %, donc fold (sauf si tu peux gagner beaucoup plus plus tard).
+
+Les "cotes implicites" (implied odds)
+Quand tu touches ton tirage, tu peux souvent gagner de l'argent en plus sur les tours
+suivants. Ca rend certains calls rentables meme si l'equite est un peu en dessous du
+seuil. A l'inverse, certains tirages ne rapportent presque rien quand ils arrivent
+(si tout le monde se couche). C'est pour ca que les cas limites (a 3 points pres) se
+defendent dans les deux sens, et que le jeu le signale dans ses explications.
+
+Les "cotes inverses" (reverse implied odds)
+Si tu touches une main qui n'est pas la meilleure (par exemple la plus petite couleur),
+tu peux perdre beaucoup en payant derriere. Ca pousse a etre prudent avec les tirages
+faibles.
+
+
+==========================================================================================
+11. L'ESPERANCE DE GAIN (EV)
+==========================================================================================
+
+L'EV (Expected Value) est le gain moyen d'une decision si tu la repetais tres souvent.
+On ne se demande pas "est-ce que je vais gagner cette main ?", mais "cette decision, en
+moyenne, rapporte-t-elle de l'argent ?".
+
+Exemple
+  Pot 100, l'adversaire mise 50, tu as 30 % d'equite.
+  Si tu paies : tu perds 50 dans 70 % des cas, et tu gagnes 150 dans 30 % des cas.
+  EV du call = 0,30 x 150 - 0,70 x 50 = 45 - 35 = +10.
+  Tu gagnes en moyenne 10 a chaque fois : le call est bon.
+  (C'est coherent : on avait calcule qu'il fallait 25 % ; avec 30 %, c'est positif.)
+
+Point essentiel : un bon choix peut perdre, un mauvais choix peut gagner. Sur UNE main,
+le hasard domine. C'est sur des milliers de mains que la bonne decision gagne. Il ne
+faut donc jamais juger une decision sur son resultat ("j'ai perdu donc c'etait faux").
+Juge-la sur sa logique.
+
+
+==========================================================================================
+12. VALUE BET, BLUFF, ET QUAND MISER
+==========================================================================================
+
+Pourquoi miser plutot que checker ?
+Il y a trois raisons de miser :
+  1. Pour la valeur : tu as une bonne main et tu veux que des mains plus faibles paient.
+  2. Pour le bluff : tu as une main faible, tu veux que l'adversaire se couche.
+  3. Pour la protection / information : moins importante pour commencer.
+
+Le value bet
+Pose-toi la question : "est-ce que des mains moins bonnes que la mienne peuvent payer ?".
+Si oui, mise. Si non, mise seulement si tu peux faire coucher des mains meilleures
+(bluff), sinon check.
+
+Le bluff
+Un bluff est rentable quand l'adversaire se couche suffisamment souvent. Si tu mises
+50 pour gagner un pot de 100, il faut qu'il se couche plus de 33 % du temps pour que
+ce soit rentable. Le calcul inverse celui des cotes du pot : plus ta mise est grosse,
+plus il faut qu'il se couche souvent.
+
+Combien bluffer ?
+Une approche equilibree : plus tu mises gros, plus tu peux avoir de bluffs dans ta
+fourchette de mises. Pour une mise du pot entier, environ 1 main sur 3 peut etre un
+bluff (2 pour la valeur, 1 pour le bluff). Pour une mise a mi-pot, environ 1 sur 4.
+C'est une idee de base, pas une loi.
+
+Les "bons" bluffs sont des mains qui ont de l'equite quand l'adversaire paie : les
+tirages (couleur, quinte). On appelle ca des "semi-bluffs". Ils ont deux manieres de
+gagner : l'adversaire se couche, ou tu touches ton tirage.
+
+La force relative
+Une paire d'As n'est pas "toujours forte". Sur un board K-Q-J-T, une paire d'As est
+une quinte potentielle pour d'autres. Le board change la valeur de ta main. Regarde
+toujours : quelles couleurs, quelles quintes, quelles paires le board permet-il ?
+
+
+==========================================================================================
+13. LES ERREURS CLASSIQUES (quand on joue a l'instinct)
+==========================================================================================
+
+  1. Jouer trop de mains. Le debutant veut "voir le flop" avec tout. Resultat : il se
+     retrouve souvent avec des mains dominees (A-9 contre A-K) et perd de grosses sommes.
+  2. Ignorer la position. Ouvrir 54s de UTG, c'est jouer contre la logique du jeu.
+  3. Payer parce qu'on "est deja engage". L'argent deja mis est perdu. Seule compte la
+     decision actuelle : ce que je paie contre ce que je peux gagner.
+  4. Refuser de se coucher avec une paire moyenne face a de grosses mises sur plusieurs
+     tours : l'adversaire qui mise trois fois a souvent mieux.
+  5. Rester collé a un tirage qui n'a pas les cotes. "J'ai un tirage" n'est pas une raison
+     de payer. Les cotes du pot le sont.
+  6. Bluffer trop souvent contre quelqu'un qui ne se couche jamais.
+  7. Juger ses decisions sur le resultat. Perdre un all-in a 80 % n'est pas une erreur.
+  8. Le tilt : jouer plus de mains ou plus gros apres une perte. Si tu t'en rends compte,
+     arrete la session.
+  9. Le bankroll : ne jamais jouer avec de l'argent dont tu as besoin. Le poker a de la
+     variance, meme un joueur excellent perd pendant des periodes entieres.
+
+
+==========================================================================================
+14. COMMENT UTILISER LE JEU POUR APPRENDRE (PLAN PROPOSE)
+==========================================================================================
+
+Etape 1 : lis ce document jusqu'a la partie 10 incluse. Reviens-y quand une notion
+          est floue.
+Etape 2 : dans le jeu, menu 4 (Entrainement poker), tape c pour lire les cours
+          integres (ils reprennent l'essentiel de ce guide).
+Etape 3 : mode 2, "Compter ses outs". C'est le plus simple. Fais-en quelques dizaines
+          jusqu'a ce que les chiffres 9, 8, 4, 6 te viennent tout seuls.
+          Tape ? pour avoir une aide progressive si tu bloques.
+Etape 4 : mode 1, "Ouverture preflop par position". Utilise g pour afficher la grille
+          d'une position, regarde-la, puis entraine-toi. Commence par memoriser UTG
+          (la plus petite), puis elargis vers le bouton.
+Etape 5 : mode 3, "Cotes du pot". Apprends la table de la partie 10. Avec les outs,
+          tu sauras presque toujours quoi faire.
+Etape 6 : mode 4, "Estimer son equite". C'est le plus difficile, a faire en dernier.
+          Ne cherche pas la precision : vise la bonne zone (a 6 points pres).
+Etape 7 : mode 5, melange des quatre, pour consolider.
+Etape 8 : le Hold'em du casino (jeu numero 5) te donne des decisions reelles a
+          prendre contre la banque, avec des corrections.
+
+Regle d'or : ne cherche pas a tout retenir d'un coup. Dix minutes par jour valent
+mieux qu'une heure en une seule fois.
+
+Note sur le Hold'em du casino
+Le Casino Hold'em / Ultimate Texas Hold'em du jeu n'est pas du poker contre des joueurs :
+tu joues contre la banque, avec des regles de mise fixes. Ca t'entraine a evaluer ta
+main, mais les vraies decisions de poker (position, bluff, lecture de range) se
+travaillent dans le mode d'entrainement poker.
+
+
+==========================================================================================
+15. AIDE-MEMOIRE (A GARDER SOUS LA MAIN)
+==========================================================================================
+
+CLASSEMENT : quinte flush > carre > full > couleur > quinte > brelan > double paire >
+             paire > carte haute
+
+COMBOS :     paire = 6   assortie = 4   depareillee = 12   (total 1326)
+
+POSITIONS :  UTG < HJ < CO < BTN (la meilleure). Plus tu es tot, plus tu es serre.
+             Ouverture : UTG ~14 %, HJ ~18 %, CO ~23 %, BTN ~45 %, SB ~32 %.
+
+OUTS :       couleur 9 | quinte ouverte 8 | gutshot 4 | deux surcartes 6 | une surcarte 3
+             paire vers brelan 2 | couleur + quinte ouverte 15 | couleur + gutshot 12
+
+REGLE :      flop : outs x 4   |   turn : outs x 2
+             au flop avec plus de 8 outs : retire (outs - 8)
+
+COTES :      equite necessaire = mise / (pot + 2 x mise)
+             1/3 pot = 20 % | 1/2 pot = 25 % | 2/3 pot = 29 % | 3/4 pot = 30 %
+             pot = 33 % | 1,5 pot = 38 % | 2 pot = 40 %
+
+DECISION :   1. equite necessaire ?  2. mon equite (outs, force de ma main) ?
+             3. equite >= necessaire -> call, sinon fold.
+             4. cas limite : position et gains futurs (cotes implicites).
+
+BLUFF :      mise du pot -> environ 1 bluff pour 2 value bets.
+             Un bluff d'une mise de la moitie du pot doit marcher plus de 33 % du temps (mise / (pot + mise)).
+
+A RETENIR :  une decision se juge sur sa logique, jamais sur son resultat.
+
+==========================================================================================
+Bonne progression. Quand ces bases seront solides, tu pourras passer aux sujets suivants :
+defense de la grosse blinde, 3-bet, taille des mises, jeu contre les relances, gestion des
+tapis courts. Demande-moi et je les ajouterai au guide ou au jeu.
+==========================================================================================
