@@ -7,6 +7,7 @@ from itertools import combinations
 
 import pp_plus
 import pp_poker
+import pp_slots
 
 # Rangs dans l'ordre (l'index sert pour les suites du 21+3)
 RANGS = [('2', 2), ('3', 3), ('4', 4), ('5', 5), ('6', 6), ('7', 7), ('8', 8),
@@ -525,6 +526,9 @@ def demander_mise(etat):
         if saisie == 'dr':
             pp_plus.basculer_dr(etat)
             return None
+        cmd_jeu = JEUX_EXTRA.get(etat['jeu'], {}).get('commande')
+        if cmd_jeu and cmd_jeu(etat, saisie):
+            continue
         if saisie in ('df', 'defi', 'défi'):
             pp_plus.afficher_defi(etat)
             return None
@@ -1693,7 +1697,7 @@ def run_game(tournoi=0):
         while etat['jetons'] >= 1:
             entete = f"Jetons : {fmt(etat['jetons'])} | {NOMS_JEUX[etat['jeu']]}"
             if not tournoi:
-                entete += f" | Jackpot {fmt(etat['jackpot'])}"
+                entete += " | " + pp_plus.texte_jackpots(etat)
             print(entete)
             print(pp_plus.ligne_tournoi(etat) if tournoi else ligne_statut(etat))
             pp_plus.avant_mise(etat)
@@ -1923,6 +1927,7 @@ def main():
 
 pp_poker.installer(globals())
 pp_plus.installer(globals())
+pp_slots.installer(globals())
 
 
 if __name__ == "__main__":
