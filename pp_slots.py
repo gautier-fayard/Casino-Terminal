@@ -252,13 +252,9 @@ def cases_gagnantes(gains):
 
 
 def afficher_grille(grille, gagnantes=(), prefixe="   "):
-    """Les symboles gagnants sont écrits en minuscules."""
+    """Affiche la grille (tout en majuscules ; le détail des lignes gagnantes est écrit dessous)."""
     for row in range(3):
-        cases = []
-        for r in range(5):
-            s = grille[r][row]
-            cases.append(s.lower() if (r, row) in gagnantes else s)
-        print(prefixe + " | ".join(cases))
+        print(prefixe + " | ".join(grille[r][row] for r in range(5)))
 
 
 def _bloc(vue):
@@ -366,7 +362,7 @@ def lignes_aide():
         out.append(f"   {sym} : {fmt_x(t[3])} / {fmt_x(t[4])} / {fmt_x(t[5])}")
     out.append(f" 3 / 4 / 5 BNS : {GAINS_BONUS_SYMBOLE[3]}x / {GAINS_BONUS_SYMBOLE[4]}x / {GAINS_BONUS_SYMBOLE[5]}x"
                f" la mise + {TOURS_GRATUITS} tours gratuits.")
-    out.append(" Cascades : les symboles gagnants (écrits en minuscules) disparaissent, d'autres tombent,")
+    out.append(" Cascades : les symboles des lignes gagnantes disparaissent, d'autres tombent,")
     out.append(f"   et chaque gain suivant est multiplié (x{', x'.join(str(m) for m in ECHELLE_CASCADE[1:])}).")
     out.append(" Bonus : d'abord les coffres (multiplicateur, gains fixes, un vide), puis les tours gratuits.")
     out.append(f"   Dans le bonus : WLD collés jusqu'à la fin, WLD qui s'étendent sur les rouleaux 2 à 4,")
@@ -624,6 +620,7 @@ def jouer_slots(etat, mise):
         return jouer_auto(etat, mise, auto)
     if achat:
         cout = PRIX_BONUS * mise
+        etat['_unite_jp'] = mise  # le jackpot se calcule sur la mise, pas sur le prix du bonus
         etat['jetons'] -= cout
         debloquer(etat, 'sl_achat')
         compter(etat, 'sl_achat')

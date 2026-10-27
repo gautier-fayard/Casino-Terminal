@@ -20,13 +20,12 @@ NEEDED = ['fmt', 'pause', 'corriger', 'debloquer', 'compter', 'Quitter', 'lire_m
           'afficher_stats', 'afficher_objectifs', 'changer_jeu', 'PAUSE', 'DEPART', 'OBJECTIFS', 'RECOMPENSES',
           'LIBELLES']
 
-# Jackpots par paliers : (nom, part de chaque mise versée, cagnotte de départ, diviseur de la chance)
-# Chance par manche = mise / diviseur (mise plafonnée à JACKPOT_PLAFOND), mise minimale JACKPOT_MIN.
-# Avec une mise de 100 : MINI 1 sur 200, MINOR 1 sur 1 000, MAJOR 1 sur 4 000, GRAND 1 sur 15 000.
-PALIERS_JP = [('MINI', 0.002, 100, 20000), ('MINOR', 0.003, 500, 100000),
-              ('MAJOR', 0.004, 2000, 400000), ('GRAND', 0.007, 10000, 1500000)]
-POT_DEPART = 10000         # cagnotte de départ du GRAND (compatibilité avec l'ancienne sauvegarde)
-JACKPOT_PLAFOND = 1000     # au-delà de cette mise, la chance n'augmente plus
+# Jackpots par paliers. Les cagnottes sont en MULTIPLES DE LA MISE : le gain est toujours (multiple x ta mise
+# du moment), donc il s'adapte quand tu augmentes ou baisses ta mise.
+# (nom, multiple de départ, croissance par manche, une chance sur N par manche)
+# Ordre de grandeur du gain moyen : MINI ~15x, MINOR ~80x, MAJOR ~500x, GRAND ~5 000x la mise.
+PALIERS_JP = [('MINI', 10, 0.0167, 300), ('MINOR', 50, 0.015, 2000),
+              ('MAJOR', 300, 0.0133, 15000), ('GRAND', 2000, 0.05, 60000)]
 JACKPOT_MIN = 10           # mise minimale pour être éligible
 TOURNOI_DEFAUT = 30
 
@@ -219,46 +218,59 @@ def double_ou_rien(etat, gain):
 
 # ============================================================ jackpot
 
-def chance_jackpot(engage, diviseur):
-    if engage < JACKPOT_MIN:
-        return 0.0
-    return min(engage, JACKPOT_PLAFOND) / diviseur
-
-
 def cagnottes(etat):
-    return etat.setdefault('jackpots', {nom: graine for nom, _, graine, _ in PALIERS_JP})
+    """Multiples de la mise de chaque palier."""
+    return etat.setdefault('jackpots_x', {nom: float(dep) for nom, dep, _, _ in PALIERS_JP})
 
 
 def texte_jackpots(etat):
+    """Montants calculés avec ta mise actuelle (dernière mise jouée)."""
     c = cagnottes(etat)
-    return "Jackpots " + " ".join(f"{nom} {fmt(round(c[nom]))}" for nom, _, _, _ in PALIERS_JP)
+    mise = max(etat.get('derniere', 0), JACKPOT_MIN)
+    return f"Jackpots (mise {fmt(mise)}) " + " ".join(f"{nom} {fmt(round(c[nom] * mise))}" for nom, _, _, _ in PALIERS_JP)
 
 
-def jackpot(etat, engage):
-    """Alimente les 4 cagnottes puis tire les jackpots (du GRAND au MINI, un seul par manche).
-    Retourne True si un jackpot est tombé."""
-    if etat.get('tournoi'):
+def roue_jackpot(gagnant):
+    """Roue qui ralentit et s'arrête sur le palier gagné (non passable)."""
+    noms = [n for n, _, _, _ in PALIERS_JP]
+    pos = noms.index(gagnant)
+    tours = 3 * len(noms) + pos + 1
+    delais = [0.06 + 0.012 * i * i / 6 for i in range(tours)]
+    for i in range(tours):
+        n = noms[i % len(noms)]
+        cases = " ".join(f"[{x:^5}]" if x == n else f" {x:^5} " for x in noms)
+        print("\r  " + cases + "  ", end="", flush=True)
+        dormir(delais[i])
+    dormir(0.8)
+    print()
+
+
+def jackpot(etat, engage, unite=None):
+    """Fait grossir les 4 cagnottes puis tire un jackpot (du GRAND au MINI, un seul par manche).
+    Le gain = multiple du palier x la mise (unite). Retourne True si un jackpot est tombé."""
+    if etat.get('tournoi') or engage < JACKPOT_MIN:
         return False
+    unite = unite or engage
     c = cagnottes(etat)
-    for nom, part, _, _ in PALIERS_JP:
-        c[nom] = round(c[nom] + engage * part, 2)
-    etat['jackpot'] = c['GRAND']
-    for nom, part, graine, div in reversed(PALIERS_JP):
-        p = chance_jackpot(engage, div)
-        if p and random.random() < p:
-            gain = round(c[nom])
+    for nom, _, croissance, _ in PALIERS_JP:
+        c[nom] = round(c[nom] + croissance, 5)
+    for nom, depart, _, un_sur in reversed(PALIERS_JP):
+        if random.random() < 1 / un_sur:
+            gain = round(c[nom] * unite)
             vider_clavier()
-            print(f"\n JACKPOT {nom} !")
+            print("\n Tirage au hasard : à chaque manche le jeu tire un jackpot, sans lien avec les symboles ni le résultat.")
             dormir(1.2)
-            print(f" Le tirage du jackpot {nom} est tombé sur ta mise de {fmt(engage)} (1 chance sur {round(1 / p)} par manche).")
-            dormir(1.5)
-            print(f" +{fmt(gain)} jetons\n")
+            roue_jackpot(nom)
+            print(f"\n JACKPOT {nom} !")
+            dormir(1.0)
+            print(f" Chance du {nom} : 1 sur {un_sur} par manche.")
+            dormir(1.2)
+            print(f" {fmt(round(c[nom], 1))} x ta mise de {fmt(unite)} : +{fmt(gain)} jetons\n")
             dormir(1.0)
             vider_clavier()
             etat['jetons'] += gain
             etat['bonus'] += gain
-            c[nom] = graine
-            etat['jackpot'] = c['GRAND']
+            c[nom] = float(depart)
             debloquer(etat, {'MINI': 'jp_mini', 'MINOR': 'jp_minor', 'MAJOR': 'jp_major', 'GRAND': 'jackpot'}[nom])
             return True
     return False
@@ -843,10 +855,9 @@ def initialiser(etat, save):
     """Prépare les états des extensions au début d'une session de casino."""
     save = save or {}
     tournoi = etat.get('tournoi')
-    anciens = save.get('jackpots') or {}
-    etat['jackpots'] = {nom: max(graine, anciens.get(nom, save.get('jackpot', 0) if nom == 'GRAND' else 0))
-                        for nom, _, graine, _ in PALIERS_JP}
-    etat['jackpot'] = 0 if tournoi else etat['jackpots']['GRAND']
+    # (les anciennes cagnottes en jetons 'jackpot' / 'jackpots' ne sont plus utilisées)
+    anciens = save.get('jackpots_x') or {}
+    etat['jackpots_x'] = {nom: max(float(dep), float(anciens.get(nom, dep))) for nom, dep, _, _ in PALIERS_JP}
     etat['record_tournoi'] = save.get('record_tournoi', {})
     etat['compte_session'] = {}
     etat['dr_actif'] = save.get('dr_actif', True)
@@ -863,7 +874,7 @@ def initialiser(etat, save):
 
 
 def donnees_extra(etat):
-    return {'jackpot': etat.get('jackpot', POT_DEPART), 'jackpots': etat.get('jackpots', {}), 'record_tournoi': etat.get('record_tournoi', {}),
+    return {'jackpots_x': etat.get('jackpots_x', {}), 'record_tournoi': etat.get('record_tournoi', {}),
             'dr_actif': etat.get('dr_actif', True), 'hilo_stats': etat.get('hilo_stats', {}),
             'defi_fait': etat.get('defi_fait', '')}
 
@@ -882,7 +893,7 @@ def apres_gain(etat, engage, net_prov):
         return  # auto-spin : jackpots déjà tirés à chaque tour, pas de double ou rien
     if net_prov > 0:
         double_ou_rien(etat, net_prov)
-    jackpot(etat, engage)
+    jackpot(etat, engage, etat.pop('_unite_jp', None))
 
 
 def fin_manche(etat):
@@ -906,9 +917,9 @@ def afficher_extra(etat):
         print(ligne_tournoi(etat))
         return
     print(texte_jackpots(etat))
-    print("  Chaque mise alimente les 4 cagnottes. Chaque manche (mise >= %d) tire un jackpot au sort :" % JACKPOT_MIN)
-    print("  chance = mise / diviseur (plafonnée à une mise de %d). Avec une mise de 100 :" % JACKPOT_PLAFOND)
-    print("  " + ", ".join(f"{nom} 1 sur {div // 100}" for nom, _, _, div in PALIERS_JP) + ".")
+    print("  Les cagnottes sont des multiples de ta mise : le gain s'adapte à la mise jouée au moment du tirage.")
+    print("  Chaque manche (mise >= %d) tire un jackpot au sort, la mise ne change pas la chance :" % JACKPOT_MIN)
+    print("  " + ", ".join(f"{nom} 1 sur {n}" for nom, _, _, n in PALIERS_JP) + ".")
     afficher_defi(etat)
     s = etat.get('hilo_stats')
     if s and s['total']:
