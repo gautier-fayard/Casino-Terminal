@@ -274,7 +274,7 @@ def roue_jackpot(gagnant):
     print()
 
 
-def jackpot(etat, engage, unite=None):
+def jackpot(etat, engage, unite=None, mini_discret=False):
     """Fait grossir les 4 cagnottes puis tire un jackpot (du GRAND au MINI, un seul par manche).
     Le gain = multiple du palier x la mise (unite). Retourne True si un jackpot est tombé."""
     if etat.get('tournoi') or etat.get('jeu') not in JEUX_JACKPOT or engage < JACKPOT_MIN:
@@ -286,22 +286,23 @@ def jackpot(etat, engage, unite=None):
     for nom, depart, _, un_sur in reversed(PALIERS_JP):
         if random.random() < 1 / un_sur:
             gain = round(c[nom] * unite)
-            vider_clavier()
-            print("\n Tirage au hasard : à chaque manche le jeu tire un jackpot, sans lien avec les symboles ni le résultat.")
-            dormir(1.2)
-            roue_jackpot(nom)
-            print(f"\n JACKPOT {nom} !")
-            dormir(1.0)
-            print(f" Chance du {nom} : 1 sur {un_sur} par manche.")
-            dormir(1.2)
-            print(f" {fmt(round(c[nom], 1))} x ta mise de {fmt(unite)} : +{fmt(gain)} jetons\n")
-            dormir(1.0)
-            vider_clavier()
+            if not (mini_discret and nom == 'MINI'):
+                vider_clavier()
+                print("\n Tirage au hasard : à chaque manche le jeu tire un jackpot, sans lien avec les symboles ni le résultat.")
+                dormir(1.2)
+                roue_jackpot(nom)
+                print(f"\n JACKPOT {nom} !")
+                dormir(1.0)
+                print(f" Chance du {nom} : 1 sur {un_sur} par manche.")
+                dormir(1.2)
+                print(f" {fmt(round(c[nom], 1))} x ta mise de {fmt(unite)} : +{fmt(gain)} jetons\n")
+                dormir(1.0)
+                vider_clavier()
             etat['jetons'] += gain
             etat['bonus'] += gain
             c[nom] = float(depart)
             debloquer(etat, {'MINI': 'jp_mini', 'MINOR': 'jp_minor', 'MAJOR': 'jp_major', 'GRAND': 'jackpot'}[nom])
-            return True
+            return nom
     return False
 
 

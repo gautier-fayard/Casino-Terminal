@@ -835,16 +835,19 @@ def jouer_auto(etat, mise, auto):
             tag += f" BONUS +{fmt(round(bonus['total'], 2))} ({fmt(round(bonus['total'] / mise, 1))}x)"
         elif t['bns_initial'] == 2:
             tag += " presque (2 BNS)"
-        notable = bool(bonus) or total >= 5 * mise
+        avant_jp = etat['jetons']
+        jp = pp_plus.jackpot(etat, mise, mini_discret=True)
+        gain_tour_jp = etat['jetons'] - avant_jp if jp else 0
+        if jp:
+            nb_jackpots += 1
+            gain_jp += gain_tour_jp
+            tag += f" JACKPOT {jp} +{fmt(round(gain_tour_jp, 2))}"
+        notable = bool(bonus) or bool(jp) or total >= 5 * mise
         if detail or notable:
             print(f" {i:>2}/{n} : {'+' + fmt(round(total, 2)) if total else 'rien':>8}{tag}   Jetons {fmt(round(etat['jetons'], 2))}")
         elif i % 100 == 0:
             print(f" ... {i}/{n} tours, net {fmt(round(gagne - mis, 2))}, jetons {fmt(round(etat['jetons'], 2))}")
-        avant_jp = etat['jetons']
-        if pp_plus.jackpot(etat, mise):
-            nb_jackpots += 1
-            gain_jp += etat['jetons'] - avant_jp
-            print(f" Jackpot encaissé. Jetons {fmt(round(etat['jetons'], 2))}. L'auto-spin continue.")
+        if jp and jp != 'MINI':
             pp_plus.dormir(0.8)
             pp_plus.vider_clavier()
         if auto['gain_x'] and total >= auto['gain_x'] * mise:
