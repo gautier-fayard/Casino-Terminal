@@ -885,6 +885,8 @@ def initialiser(etat, save):
     save = save or {}
     tournoi = etat.get('tournoi')
     # (les anciennes cagnottes en jetons 'jackpot' / 'jackpots' ne sont plus utilisées)
+    etat['auto_cfg'] = save.get('auto_cfg')
+    etat['auto_actif'] = False
     anciens = save.get('jackpots_x') or {}
     etat['jackpots_x'] = {nom: max(float(dep), float(anciens.get(nom, dep))) for nom, dep, _, _ in PALIERS_JP}
     etat['record_tournoi'] = save.get('record_tournoi', {})
@@ -903,7 +905,7 @@ def initialiser(etat, save):
 
 
 def donnees_extra(etat):
-    return {'jackpots_x': etat.get('jackpots_x', {}), 'record_tournoi': etat.get('record_tournoi', {}),
+    return {'auto_cfg': etat.get('auto_cfg'), 'jackpots_x': etat.get('jackpots_x', {}), 'record_tournoi': etat.get('record_tournoi', {}),
             'dr_actif': etat.get('dr_actif', True), 'hilo_stats': etat.get('hilo_stats', {}),
             'defi_fait': etat.get('defi_fait', '')}
 
@@ -1033,10 +1035,26 @@ def fin_manche(etat):
     return False
 
 
+def afficher_total_parties(etat):
+    cumul = etat.get('cumul', {})
+    noms = [('slots', 'Machine à sous'), ('roulette', 'Roulette'), ('baccara', 'Baccara'), ('poker', 'Poker'),
+            ('holdem', "Hold'em"), ('craps', 'Craps'), ('crash', 'Crash')]
+    connus = {cle: cumul.get(cle, 0) for cle, _ in noms}
+    total = max(cumul.get('manches', 0), sum(connus.values()))
+    blackjack = max(0, total - sum(connus.values()))
+    parts = [f"{nom} {fmt(connus[cle])}" for cle, nom in noms if connus[cle]]
+    if blackjack:
+        parts.insert(0, f"Blackjack {fmt(blackjack)}")
+    print(f"Parties jouées au total : {fmt(total)} (cette session : {etat['stats']['manches']})")
+    if parts:
+        print("  " + " | ".join(parts))
+
+
 def afficher_extra(etat):
     if etat.get('tournoi'):
         print(ligne_tournoi(etat))
         return
+    afficher_total_parties(etat)
     print(texte_jackpots(etat))
     print("  Jackpots réservés à la machine à sous. Les cagnottes sont des multiples de ta mise : le gain s'adapte")
     print("  à la mise jouée au moment du tirage. Chaque tour (mise >= %d) tire un jackpot au sort, la mise ne change pas la chance :" % JACKPOT_MIN)

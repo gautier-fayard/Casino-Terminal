@@ -367,7 +367,8 @@ def lignes_aide():
     out.append(" Bonus : d'abord les coffres (multiplicateur, gains fixes, un vide), puis les tours gratuits.")
     out.append(f"   Dans le bonus : WLD collés jusqu'à la fin, WLD qui s'étendent sur les rouleaux 2 à 4,")
     out.append(f"   3 / 4 / 5 BNS = +{RELANCE_TOURS[3]} / +{RELANCE_TOURS[4]} / +{RELANCE_TOURS[5]} tours (max {TOURS_MAX}).")
-    out.append(f" Commandes : ab = acheter le bonus ({PRIX_BONUS}x la mise), auto = tours automatiques,")
+    out.append(f" Commandes : ab = acheter le bonus ({PRIX_BONUS}x la mise), auto = tours automatiques (réglage mémorisé,")
+    out.append("   Entrée relance la même chose, man = mode normal),")
     out.append("   gains = rappeler cette aide. Entrée pendant un tirage = fast spin (pas dans les bonus).")
     return out
 
@@ -584,6 +585,45 @@ def afficher_etapes(etat, mise, t):
             print(f" {e['bns']} BNS : +{fmt(e['prime_bns'])}")
 
 
+def coffres_auto(etat, mise, nb):
+    coffres = preparer_coffres()
+    mult = MULT_BASE_BONUS
+    mult_coffre = 0
+    fixes = 0.0
+    for i in random.sample(range(5), nb):
+        t, v = coffres[i]
+        debloquer(etat, 'sl_coffre')
+        if t == 'mult':
+            mult = v
+            mult_coffre = v
+        elif t == 'fixe':
+            fixes += v * mise
+        else:
+            debloquer(etat, 'sl_vide')
+    etat['jetons'] += fixes
+    return mult, fixes, mult_coffre
+
+
+def bonus_silencieux(etat, mise, bns):
+    mult, fixes, mult_coffre = coffres_auto(etat, mise, COFFRES_PAR_BNS[min(bns, 5)])
+    total = 0.0
+    max_collants = 0
+    etendus = False
+    relances = 0
+    plafond = False
+    for tr in tours_bonus(mise, mult):
+        total += tr['valeur']
+        etat['jetons'] += tr['valeur']
+        max_collants = max(max_collants, len(tr['collants']))
+        etendus = etendus or bool(tr['etendus'])
+        relances = tr['relances']
+        plafond = plafond or tr['plafond']
+    res = {'total': total + fixes, 'relances': relances, 'max_collants': max_collants, 'etendus': etendus,
+           'mult_coffre': mult_coffre, 'plafond': plafond}
+    evenements_bonus(etat, mise, res)
+    return res
+
+
 def jouer_un_tour(etat, mise, animation=True):
     """Un tour complet. Retourne (gain total du tour, bonus ou None)."""
     global _rapide
@@ -607,7 +647,7 @@ def jouer_un_tour(etat, mise, animation=True):
     total = t['total']
     bonus = None
     if t['declenche']:
-        bonus = jouer_bonus(etat, mise, t['declenche'])
+        bonus = jouer_bonus(etat, mise, t['declenche']) if animation else bonus_silencieux(etat, mise, t['declenche'])
         total += bonus['total']
     debloque_gain(etat, total, mise)
     return total, bonus, t
@@ -637,7 +677,16 @@ def jouer_slots(etat, mise):
     return mise
 
 
+def texte_auto(cfg):
+    g = f"gain >= {fmt(cfg['gain_x'])}x" if cfg['gain_x'] else "sans limite de gain"
+    p = f"perte >= {fmt(cfg['perte_x'])}x" if cfg['perte_x'] else "sans limite de perte"
+    return f"{cfg['n']} tours, {g}, {p}"
+
+
 def demander_slots(etat):
+    if etat.get('auto_actif') and etat.get('auto_cfg'):
+        print(f" Auto-spin mémorisé : {texte_auto(etat['auto_cfg'])}.")
+        print(" Entrée = relancer avec la dernière mise, une mise = relancer avec celle-ci, auto = modifier, man = mode normal.")
     while True:
         mise = demander_mise(etat)
         if mise is None:
@@ -670,6 +719,13 @@ def commande(etat, saisie):
             return True
         configurer_auto(etat)
         return True
+    if saisie in ('man', 'manuel'):
+        etat['auto_actif'] = False
+        etat.pop('_auto', None)
+        print(" Retour au mode normal (un tour par mise).")
+        return True
+    if etat.get('auto_actif') and etat.get('auto_cfg') and not etat.get('tournoi'):
+        etat['_auto'] = dict(etat['auto_cfg'])
     return False
 
 
@@ -694,31 +750,68 @@ def _lire_nombre(invite, defaut, valides=None):
         return v
 
 
+AUTO_MAX = 10000
+
+
+def _lire_nombre_auto(invite, defaut, minimum, maximum):
+    while True:
+        try:
+            s = input(invite).strip().lower()
+        except Quitter:
+            return None
+        if s in ('q', 'quit', 'exit'):
+            return None
+        if s == '':
+            return defaut
+        if s in ('max', 'illimite', 'illimité', 'inf'):
+            return maximum
+        try:
+            v = float(s.replace(',', '.'))
+        except ValueError:
+            print(" Un nombre.")
+            continue
+        if v < minimum or v > maximum:
+            print(f" Entre {fmt(minimum)} et {fmt(maximum)}.")
+            continue
+        return v
+
+
 def configurer_auto(etat):
-    n = _lire_nombre("Auto-spin : nombre de tours (10, 25 ou 50, Entrée = 10, q = annuler) > ", 10, (10, 25, 50))
+    prec = etat.get('auto_cfg') or {'n': 10, 'gain_x': 20, 'perte_x': 30}
+    n = _lire_nombre_auto(f"Auto-spin : nombre de tours (1 à {AUTO_MAX}, max = {AUTO_MAX}, Entrée = {prec['n']}, q = annuler) > ",
+                          prec['n'], 1, AUTO_MAX)
     if n is None:
         print(" Annulé.")
         return
-    g = _lire_nombre("Arrêt si un tour rapporte au moins (x la mise, Entrée = 20) > ", 20)
+    g = _lire_nombre_auto(f"Arrêt si un tour rapporte au moins (x la mise, Entrée = {fmt(prec['gain_x'])}, 0 = jamais) > ",
+                          prec['gain_x'], 0, 1000000)
     if g is None:
         print(" Annulé.")
         return
-    p = _lire_nombre("Arrêt si tu perds au total (x la mise, Entrée = 30) > ", 30)
+    p = _lire_nombre_auto(f"Arrêt si tu perds au total (x la mise, Entrée = {fmt(prec['perte_x'])}, 0 = jamais) > ",
+                          prec['perte_x'], 0, 1000000)
     if p is None:
         print(" Annulé.")
         return
-    etat['_auto'] = {'n': int(n), 'gain_x': g, 'perte_x': p}
-    print(f" Auto-spin prêt : {int(n)} tours, arrêt sur gain >= {fmt(g)}x ou perte >= {fmt(p)}x la mise,"
-          " ou sur un bonus/jackpot. Appuie sur Entrée pendant les tours pour arrêter.")
-    print(" Entre ta mise pour lancer.")
+    cfg = {'n': int(n), 'gain_x': g, 'perte_x': p}
+    etat['auto_cfg'] = cfg
+    etat['auto_actif'] = True
+    etat['_auto'] = dict(cfg)
+    print(f" Auto-spin prêt : {texte_auto(cfg)}.")
+    print(" Les bonus se jouent en silence (coffres au hasard), les jackpots s'affichent. Entrée pendant les tours = arrêter.")
+    print(" Entre ta mise pour lancer. Ensuite Entrée relance la même chose, man revient au mode normal.")
 
 
 def jouer_auto(etat, mise, auto):
     n = auto['n']
+    detail = n <= 50
     depart = etat['jetons']
     mis = 0.0
     gagne = 0.0
     fait = 0
+    nb_bonus = 0
+    nb_jackpots = 0
+    gain_jp = 0.0
     raison = "terminé"
     print(f"\n Auto-spin : {n} tours de {fmt(mise)}.")
     pp_plus.vider_clavier()
@@ -733,30 +826,39 @@ def jouer_auto(etat, mise, auto):
         fait += 1
         mis += mise
         gagne += total
+        if bonus:
+            nb_bonus += 1
         tag = ""
         if t['cascades']:
             tag += f" cascade x{t['cascades']}"
-        if t['bns_initial'] == 2 and not t['declenche']:
-            tag += " presque (2 BNS)"
-        net = total - mise
-        print(f" {i:>2}/{n} : {'+' + fmt(round(total, 2)) if total else 'rien':>8}{tag}   Jetons {fmt(round(etat['jetons'], 2))}")
         if bonus:
-            raison = "bonus déclenché"
-            break
+            tag += f" BONUS +{fmt(round(bonus['total'], 2))} ({fmt(round(bonus['total'] / mise, 1))}x)"
+        elif t['bns_initial'] == 2:
+            tag += " presque (2 BNS)"
+        notable = bool(bonus) or total >= 5 * mise
+        if detail or notable:
+            print(f" {i:>2}/{n} : {'+' + fmt(round(total, 2)) if total else 'rien':>8}{tag}   Jetons {fmt(round(etat['jetons'], 2))}")
+        elif i % 100 == 0:
+            print(f" ... {i}/{n} tours, net {fmt(round(gagne - mis, 2))}, jetons {fmt(round(etat['jetons'], 2))}")
+        avant_jp = etat['jetons']
         if pp_plus.jackpot(etat, mise):
-            raison = "jackpot !"
-            break
-        if total >= auto['gain_x'] * mise:
+            nb_jackpots += 1
+            gain_jp += etat['jetons'] - avant_jp
+            print(f" Jackpot encaissé. Jetons {fmt(round(etat['jetons'], 2))}. L'auto-spin continue.")
+            pp_plus.dormir(0.8)
+            pp_plus.vider_clavier()
+        if auto['gain_x'] and total >= auto['gain_x'] * mise:
             raison = f"gros gain ({fmt(round(total / mise, 1))}x la mise)"
             break
-        if depart - etat['jetons'] >= auto['perte_x'] * mise:
+        if auto['perte_x'] and depart - etat['jetons'] >= auto['perte_x'] * mise:
             raison = "limite de perte atteinte"
             break
-        pp_plus.dormir(0.15)
+        if detail:
+            pp_plus.dormir(0.15)
     etat['jetons'] = round(etat['jetons'], 2)
-    net = gagne - mis
-    print(f" Auto-spin terminé ({raison}) : {fait} tours, {'+' if net >= 0 else ''}{fmt(round(net, 2))} net."
-          f" Jetons : {fmt(etat['jetons'])}\n")
+    net = gagne + gain_jp - mis
+    print(f" Auto-spin terminé ({raison}) : {fait} tours, {nb_bonus} bonus, {nb_jackpots} jackpot(s) (+{fmt(round(gain_jp, 2))}),"
+          f" {'+' if net >= 0 else ''}{fmt(round(net, 2))} net. Jetons : {fmt(etat['jetons'])}\n")
     if fait >= 10:
         debloquer(etat, 'sl_auto10')
     if fait >= 50 and raison == "terminé":
@@ -765,6 +867,7 @@ def jouer_auto(etat, mise, auto):
             debloquer(etat, 'sl_auto_profit')
     if fait > 1:
         compter(etat, 'slots', fait - 1)
+        compter(etat, 'manches', fait - 1)
         etat['compte_session']['slots'] = etat['compte_session'].get('slots', 0) + fait - 1
     etat['_auto_fait'] = True
     return max(mis, mise)
