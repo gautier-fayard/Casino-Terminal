@@ -8,6 +8,7 @@ from itertools import combinations
 import pp_plus
 import pp_poker
 import pp_slots
+import pp_hu
 
 # Rangs dans l'ordre (l'index sert pour les suites du 21+3)
 RANGS = [('2', 2), ('3', 3), ('4', 4), ('5', 5), ('6', 6), ('7', 7), ('8', 8),
@@ -155,6 +156,9 @@ def compter(etat, cle, n=1):
     for seuil, objectif in CUMULS.get(cle, ()):
         if etat['cumul'][cle] >= seuil:
             debloquer(etat, objectif)
+
+
+CACHES = set()
 
 
 def ajouter_objectifs(titre, objs):
@@ -1696,10 +1700,13 @@ def run_game(tournoi=0):
         changer_jeu(etat)
         while etat['jetons'] >= 1:
             entete = f"Jetons : {fmt(etat['jetons'])} | {NOMS_JEUX[etat['jeu']]}"
-            if not tournoi:
+            if not tournoi and etat['jeu'] in pp_plus.JEUX_JACKPOT:
                 entete += " | " + pp_plus.texte_jackpots(etat)
             print(entete)
             print(pp_plus.ligne_tournoi(etat) if tournoi else ligne_statut(etat))
+            ligne_ev = pp_plus.ligne_evenement(etat)
+            if ligne_ev:
+                print(ligne_ev)
             pp_plus.avant_mise(etat)
             extra = JEUX_EXTRA.get(etat['jeu'])
             if etat['jeu'] == 'roulette':
@@ -1891,7 +1898,8 @@ def afficher_objectifs(faits=None):
         n = sum(1 for c, _, _ in objs if c in faits)
         print(f"  {titre} ({n}/{len(objs)})")
         for c, libelle, prime in objs:
-            print(f"    [{'x' if c in faits else ' '}] {libelle} (+{fmt(prime)})")
+            cache = c in CACHES and c not in faits
+            print(f"    [{'x' if c in faits else ' '}] {'??? (succès caché)' if cache else libelle} (+{'?' if cache else fmt(prime)})")
     primes = sum(RECOMPENSES[c] for c in faits if c in RECOMPENSES)
     print()
     print(f"  {len(set(faits) & set(LIBELLES))}/{len(OBJECTIFS)} | Primes obtenues : {fmt(primes)} jetons")
@@ -1905,6 +1913,7 @@ def main():
         print("3. Objectifs")
         print("4. Entraînement poker (ouverture, cotes, équité)")
         print("5. Tournoi (1000 jetons, nombre de manches limité)")
+        print("6. Heads-up poker contre un bot (serré, agressif ou bluffeur) avec bilan de tes erreurs")
         print("q. Quitter")
         choix = input("Mode > ").strip().lower()
         if choix == '1':
@@ -1919,10 +1928,12 @@ def main():
             n = pp_plus.demander_tournoi()
             if n:
                 run_game(tournoi=n)
+        elif choix == '6':
+            pp_hu.run_headsup()
         elif choix in ('q', 'quit', 'exit'):
             return
         else:
-            print(" 1, 2, 3, 4, 5 ou q\n")
+            print(" 1, 2, 3, 4, 5, 6 ou q\n")
 
 
 pp_poker.installer(globals())

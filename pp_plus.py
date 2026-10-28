@@ -8,7 +8,7 @@ import math
 import random
 import sys
 import time
-from datetime import date
+from datetime import date, datetime
 
 try:
     import msvcrt  # Windows : lecture d'une touche sans bloquer
@@ -18,7 +18,7 @@ except ImportError:
 NEEDED = ['fmt', 'pause', 'corriger', 'debloquer', 'compter', 'Quitter', 'lire_montant', 'demander_mise',
           'ajouter_objectifs', 'JEUX_EXTRA', 'NOMS_JEUX', 'CUMULS', 'NOMS_CUMULS', 'charger', 'SAVE',
           'afficher_stats', 'afficher_objectifs', 'changer_jeu', 'PAUSE', 'DEPART', 'OBJECTIFS', 'RECOMPENSES',
-          'LIBELLES']
+          'LIBELLES', 'CACHES']
 
 # Jackpots par paliers. Les cagnottes sont en MULTIPLES DE LA MISE : le gain est toujours (multiple x ta mise
 # du moment), donc il s'adapte quand tu augmentes ou baisses ta mise.
@@ -27,6 +27,10 @@ NEEDED = ['fmt', 'pause', 'corriger', 'debloquer', 'compter', 'Quitter', 'lire_m
 PALIERS_JP = [('MINI', 10, 0.0167, 300), ('MINOR', 50, 0.015, 2000),
               ('MAJOR', 300, 0.0133, 15000), ('GRAND', 2000, 0.05, 60000)]
 JACKPOT_MIN = 10           # mise minimale pour être éligible
+JEUX_JACKPOT = ('slots',)
+EVENEMENT_CHANCE = 0.04
+DUREE_DOREE = 10
+DUREE_MAX_EVENEMENT = 25
 TOURNOI_DEFAUT = 30
 
 
@@ -58,6 +62,31 @@ def installer(ns):
     ajouter_objectifs('Expert', [
         ('jp_major', "Toucher le jackpot MAJOR", 5000),
     ])
+    CUMULS['dore'] = [(5, 'h_dore5')]
+    cache_debutant = [
+        ('h_pertes5', "Mauvaise passe : perdre 5 manches d'affilée", 100),
+        ('h_nuit', "Oiseau de nuit : jouer entre 2 h et 5 h du matin", 300),
+        ('h_dore', "Heure dorée : gagner pendant une heure dorée", 300),
+        ('h_sansrisque', "Filet de sécurité : être remboursé par une mise sans risque", 200),
+    ]
+    cache_confirme = [
+        ('h_egal', "Match nul : 3 manches à égalité d'affilée", 300),
+        ('h_alterne', "Yoyo : gagner et perdre en alternance 8 manches de suite", 300),
+        ('h_marathon', "Marathon : 100 manches dans la même session", 500),
+        ('h_pertes10', "Le fond du trou : perdre 10 manches d'affilée", 300),
+        ('h_grosse_perte', "Grosse claque : perdre 10 000 jetons en une manche", 300),
+        ('h_dore5', "Pluie d'or : doubler 5 gains pendant les heures dorées", 800),
+        ('h_gros_gain', "Gros coup : gagner 10 000 jetons en une manche", 500),
+        ('h_phenix', "Phénix : repasser au-dessus de 1 000 jetons après être descendu sous 20", 1000),
+    ]
+    cache_expert = [
+        ('h_touriste', "Touriste : jouer aux 8 jeux dans la même session", 1000),
+    ]
+    for liste in (cache_debutant, cache_confirme, cache_expert):
+        CACHES.update(c for c, _, _ in liste)
+    ajouter_objectifs('Débutant', cache_debutant)
+    ajouter_objectifs('Confirmé', cache_confirme)
+    ajouter_objectifs('Expert', cache_expert)
     ajouter_objectifs('Débutant', [
         ('craps_pass', "Craps : gagner un Pass line", 150),
         ('dr_gagne', "Gagner un double ou rien", 100),
@@ -248,7 +277,7 @@ def roue_jackpot(gagnant):
 def jackpot(etat, engage, unite=None):
     """Fait grossir les 4 cagnottes puis tire un jackpot (du GRAND au MINI, un seul par manche).
     Le gain = multiple du palier x la mise (unite). Retourne True si un jackpot est tombé."""
-    if etat.get('tournoi') or engage < JACKPOT_MIN:
+    if etat.get('tournoi') or etat.get('jeu') not in JEUX_JACKPOT or engage < JACKPOT_MIN:
         return False
     unite = unite or engage
     c = cagnottes(etat)
@@ -887,8 +916,95 @@ def avant_mise(etat):
     questions_hilo(etat)
 
 
+def ligne_evenement(etat):
+    ev = etat.get('evenement')
+    if not ev or etat.get('tournoi'):
+        return ''
+    if ev['type'] == 'doree':
+        return f"HEURE DOREE : gains x2 sur {NOMS_JEUX[ev['jeu']]} ({ev['reste']} manches restantes)"
+    return "MISE SANS RISQUE : si tu perds ta prochaine manche, la mise est remboursée"
+
+
+def tirer_evenement(etat):
+    if etat.get('tournoi') or etat.get('evenement') or random.random() >= EVENEMENT_CHANCE:
+        return
+    if random.random() < 0.6:
+        etat['evenement'] = {'type': 'doree', 'jeu': etat['jeu'], 'reste': DUREE_DOREE, 'ecoulees': 0}
+        print(f"\n Événement : HEURE DOREE ! Tes gains sont doublés sur {NOMS_JEUX[etat['jeu']]}"
+              f" pendant {DUREE_DOREE} manches de ce jeu.")
+    else:
+        etat['evenement'] = {'type': 'sans_risque', 'ecoulees': 0}
+        print("\n Événement : MISE SANS RISQUE ! Si tu perds ta prochaine manche (n'importe quel jeu), ta mise est remboursée.")
+
+
+def appliquer_evenement(etat, engage, net_prov):
+    ev = etat.get('evenement')
+    if not ev or etat.get('tournoi'):
+        return
+    ev['ecoulees'] = ev.get('ecoulees', 0) + 1
+    if ev['type'] == 'doree':
+        if etat['jeu'] == ev['jeu']:
+            if net_prov > 0:
+                extra = round(net_prov, 2)
+                etat['jetons'] += extra
+                etat['bonus'] += extra
+                print(f" Heure dorée : gain doublé, +{fmt(extra)} jetons en plus.")
+                debloquer(etat, 'h_dore')
+                compter(etat, 'dore')
+            ev['reste'] -= 1
+        if ev['reste'] <= 0 or ev['ecoulees'] >= DUREE_MAX_EVENEMENT:
+            print(" L'heure dorée est terminée.")
+            etat['evenement'] = None
+        return
+    if net_prov < 0:
+        remb = round(min(-net_prov, engage), 2)
+        etat['jetons'] += remb
+        etat['bonus'] += remb
+        print(f" Mise sans risque : {fmt(remb)} jetons remboursés.")
+        debloquer(etat, 'h_sansrisque')
+    else:
+        print(" Mise sans risque utilisée (tu n'as pas perdu).")
+    etat['evenement'] = None
+
+
+def succes_caches(etat, engage, net):
+    if etat.get('tournoi'):
+        return
+    s = etat.setdefault('sc', {'pertes': 0, 'egal': 0, 'dernier': 0, 'alterne': 0, 'creux': False})
+    s['pertes'] = s['pertes'] + 1 if net < 0 else 0
+    s['egal'] = s['egal'] + 1 if net == 0 else 0
+    signe = 1 if net > 0 else -1 if net < 0 else 0
+    if signe == 0:
+        s['alterne'] = 0
+    elif s['dernier'] and signe != s['dernier']:
+        s['alterne'] += 1
+    else:
+        s['alterne'] = 1
+    s['dernier'] = signe
+    if s['pertes'] >= 5:
+        debloquer(etat, 'h_pertes5')
+    if s['pertes'] >= 10:
+        debloquer(etat, 'h_pertes10')
+    if s['egal'] >= 3:
+        debloquer(etat, 'h_egal')
+    if s['alterne'] >= 8:
+        debloquer(etat, 'h_alterne')
+    if net >= 10000:
+        debloquer(etat, 'h_gros_gain')
+    if net <= -10000:
+        debloquer(etat, 'h_grosse_perte')
+    if etat['jetons'] < 20:
+        s['creux'] = True
+    if s['creux'] and etat['jetons'] > 1000:
+        debloquer(etat, 'h_phenix')
+    if datetime.now().hour in (2, 3, 4):
+        debloquer(etat, 'h_nuit')
+
+
 def apres_gain(etat, engage, net_prov):
     """Double ou rien sur le gain, puis alimentation du jackpot."""
+    appliquer_evenement(etat, engage, net_prov)
+    succes_caches(etat, engage, net_prov)
     if etat.pop('_auto_fait', False):
         return  # auto-spin : jackpots déjà tirés à chaque tour, pas de double ou rien
     if net_prov > 0:
@@ -909,6 +1025,11 @@ def fin_manche(etat):
             return True
         return False
     verifier_defi(etat)
+    if sum(etat['compte_session'].values()) >= 100:
+        debloquer(etat, 'h_marathon')
+    if len(etat.get('jeux_joues', ())) >= 8:
+        debloquer(etat, 'h_touriste')
+    tirer_evenement(etat)
     return False
 
 
@@ -917,8 +1038,8 @@ def afficher_extra(etat):
         print(ligne_tournoi(etat))
         return
     print(texte_jackpots(etat))
-    print("  Les cagnottes sont des multiples de ta mise : le gain s'adapte à la mise jouée au moment du tirage.")
-    print("  Chaque manche (mise >= %d) tire un jackpot au sort, la mise ne change pas la chance :" % JACKPOT_MIN)
+    print("  Jackpots réservés à la machine à sous. Les cagnottes sont des multiples de ta mise : le gain s'adapte")
+    print("  à la mise jouée au moment du tirage. Chaque tour (mise >= %d) tire un jackpot au sort, la mise ne change pas la chance :" % JACKPOT_MIN)
     print("  " + ", ".join(f"{nom} 1 sur {n}" for nom, _, _, n in PALIERS_JP) + ".")
     afficher_defi(etat)
     s = etat.get('hilo_stats')
