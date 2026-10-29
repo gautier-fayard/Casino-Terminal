@@ -5,7 +5,7 @@ import random
 import sys
 import time
 
-NEEDED = ['fmt', 'debloquer', 'compter', 'Quitter', 'demander_mise', 'ajouter_objectifs', 'JEUX_EXTRA',
+NEEDED = ['fmt', 'arrondi_sup', 'debloquer', 'compter', 'Quitter', 'demander_mise', 'ajouter_objectifs', 'JEUX_EXTRA',
           'NOMS_JEUX', 'CUMULS', 'NOMS_CUMULS', 'PAUSE', 'OBJECTIFS', 'LIBELLES', 'lire_montant']
 pp_plus = None  # renseigné par installer
 
@@ -89,7 +89,7 @@ def evaluer(grille):
 
 
 def valeur_lignes(gains, mise, mult=1.0):
-    return sum(mise / len(LIGNES) * m for _, m, _, _ in gains) * mult
+    return arrondi_sup(sum(mise / len(LIGNES) * m for _, m, _, _ in gains) * mult)
 
 
 def cascade(grille, gains):
@@ -207,7 +207,7 @@ def jouer_coffres_auto(mise, nb):
         if t == 'mult':
             mult = v
         elif t == 'fixe':
-            fixes += v * mise
+            fixes += arrondi_sup(v * mise)
     return mult, fixes
 
 
@@ -503,7 +503,7 @@ def jouer_coffres(etat, mise, nb):
             mult_coffre = v
             print(f" Coffre {choix + 1} : multiplicateur x{v} sur les tours gratuits !")
         elif t == 'fixe':
-            gain = v * mise
+            gain = arrondi_sup(v * mise)
             fixes += gain
             etat['jetons'] += gain
             print(f" Coffre {choix + 1} : +{fmt(gain)} ({v}x la mise)")
@@ -597,7 +597,7 @@ def coffres_auto(etat, mise, nb):
             mult = v
             mult_coffre = v
         elif t == 'fixe':
-            fixes += v * mise
+            fixes += arrondi_sup(v * mise)
         else:
             debloquer(etat, 'sl_vide')
     etat['jetons'] += fixes
@@ -666,13 +666,13 @@ def jouer_slots(etat, mise):
         compter(etat, 'sl_achat')
         res = jouer_bonus(etat, mise, 3, achat=True)
         debloque_gain(etat, res['total'], cout)
-        etat['jetons'] = round(etat['jetons'], 2)
+        etat['jetons'] = arrondi_sup(etat['jetons'])
         net = res['total'] - cout
         print(f" Achat de bonus : {'+' if net >= 0 else ''}{fmt(round(net, 2))} net. Jetons : {fmt(etat['jetons'])}\n")
         return cout
     print()
     total, bonus, t = jouer_un_tour(etat, mise)
-    etat['jetons'] = round(etat['jetons'], 2)
+    etat['jetons'] = arrondi_sup(etat['jetons'])
     print(f" Jetons : {fmt(etat['jetons'])}\n")
     return mise
 
@@ -836,7 +836,7 @@ def jouer_auto(etat, mise, auto):
         elif t['bns_initial'] == 2:
             tag += " presque (2 BNS)"
         avant_jp = etat['jetons']
-        jp = pp_plus.jackpot(etat, mise, mini_discret=True)
+        jp = pp_plus.jackpot(etat, mise, discrets=('MINI', 'MINOR'))
         gain_tour_jp = etat['jetons'] - avant_jp if jp else 0
         if jp:
             nb_jackpots += 1
@@ -847,7 +847,7 @@ def jouer_auto(etat, mise, auto):
             print(f" {i:>2}/{n} : {'+' + fmt(round(total, 2)) if total else 'rien':>8}{tag}   Jetons {fmt(round(etat['jetons'], 2))}")
         elif i % 100 == 0:
             print(f" ... {i}/{n} tours, net {fmt(round(gagne - mis, 2))}, jetons {fmt(round(etat['jetons'], 2))}")
-        if jp and jp != 'MINI':
+        if jp and jp not in ('MINI', 'MINOR'):
             pp_plus.dormir(0.8)
             pp_plus.vider_clavier()
         if auto['gain_x'] and total >= auto['gain_x'] * mise:
@@ -858,7 +858,7 @@ def jouer_auto(etat, mise, auto):
             break
         if detail:
             pp_plus.dormir(0.15)
-    etat['jetons'] = round(etat['jetons'], 2)
+    etat['jetons'] = arrondi_sup(etat['jetons'])
     net = gagne + gain_jp - mis
     print(f" Auto-spin terminé ({raison}) : {fait} tours, {nb_bonus} bonus, {nb_jackpots} jackpot(s) (+{fmt(round(gain_jp, 2))}),"
           f" {'+' if net >= 0 else ''}{fmt(round(net, 2))} net. Jetons : {fmt(etat['jetons'])}\n")

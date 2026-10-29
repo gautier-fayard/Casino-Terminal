@@ -15,7 +15,7 @@ try:
 except ImportError:
     msvcrt = None
 
-NEEDED = ['fmt', 'pause', 'corriger', 'debloquer', 'compter', 'Quitter', 'lire_montant', 'demander_mise',
+NEEDED = ['fmt', 'arrondi_sup', 'pause', 'corriger', 'debloquer', 'compter', 'Quitter', 'lire_montant', 'demander_mise',
           'ajouter_objectifs', 'JEUX_EXTRA', 'NOMS_JEUX', 'CUMULS', 'NOMS_CUMULS', 'charger', 'SAVE',
           'afficher_stats', 'afficher_objectifs', 'changer_jeu', 'PAUSE', 'DEPART', 'OBJECTIFS', 'RECOMPENSES',
           'LIBELLES', 'CACHES']
@@ -65,7 +65,6 @@ def installer(ns):
     CUMULS['dore'] = [(5, 'h_dore5')]
     cache_debutant = [
         ('h_pertes5', "Mauvaise passe : perdre 5 manches d'affilée", 100),
-        ('h_nuit', "Oiseau de nuit : jouer entre 2 h et 5 h du matin", 300),
         ('h_dore', "Heure dorée : gagner pendant une heure dorée", 300),
         ('h_sansrisque', "Filet de sécurité : être remboursé par une mise sans risque", 200),
     ]
@@ -241,7 +240,7 @@ def double_ou_rien(etat, gain):
             etat['dr_serie'] = 0
             print(f" Perdu -{fmt(enjeu)}")
             break
-    etat['jetons'] = round(etat['jetons'], 2)
+    etat['jetons'] = arrondi_sup(etat['jetons'])
     print()
 
 
@@ -274,7 +273,7 @@ def roue_jackpot(gagnant):
     print()
 
 
-def jackpot(etat, engage, unite=None, mini_discret=False):
+def jackpot(etat, engage, unite=None, discrets=()):
     """Fait grossir les 4 cagnottes puis tire un jackpot (du GRAND au MINI, un seul par manche).
     Le gain = multiple du palier x la mise (unite). Retourne True si un jackpot est tombé."""
     if etat.get('tournoi') or etat.get('jeu') not in JEUX_JACKPOT or engage < JACKPOT_MIN:
@@ -286,7 +285,7 @@ def jackpot(etat, engage, unite=None, mini_discret=False):
     for nom, depart, _, un_sur in reversed(PALIERS_JP):
         if random.random() < 1 / un_sur:
             gain = round(c[nom] * unite)
-            if not (mini_discret and nom == 'MINI'):
+            if nom not in discrets:
                 vider_clavier()
                 print("\n Tirage au hasard : à chaque manche le jeu tire un jackpot, sans lien avec les symboles ni le résultat.")
                 dormir(1.2)
@@ -539,7 +538,7 @@ def _payer(etat, mise, gain, label, lignes):
         etat['jetons'] += mise
         lignes.append(f" {label} : égalité")
     else:
-        gain = round(gain, 2)
+        gain = arrondi_sup(gain)
         etat['jetons'] += mise + gain
         lignes.append(f" {label} : +{fmt(gain)}")
 
@@ -602,7 +601,7 @@ def jouer_craps(etat, paris):
         for l in lignes:
             print(l)
         if point is None:
-            etat['jetons'] = round(etat['jetons'], 2)
+            etat['jetons'] = arrondi_sup(etat['jetons'])
             print(f" Jetons : {fmt(etat['jetons'])}\n")
             return engage
 
@@ -671,7 +670,7 @@ def jouer_craps(etat, paris):
             for code, m in list(tenus.items()):
                 n = int(code[2:])
                 if tot == n:
-                    gain = round(m * PLACE[n], 2)
+                    gain = arrondi_sup(m * PLACE[n])
                     etat['jetons'] += gain
                     lignes.append(f" Place {n} : +{fmt(gain)} (la mise reste)")
                 elif tot == 7:
@@ -710,7 +709,7 @@ def jouer_craps(etat, paris):
             if fini:
                 break
             _afficher_table(point, ligne, plat, cote, tenus)
-        etat['jetons'] = round(etat['jetons'], 2)
+        etat['jetons'] = arrondi_sup(etat['jetons'])
         print(f" Jetons : {fmt(etat['jetons'])}\n")
         return engage
     except Quitter:
@@ -789,7 +788,7 @@ def jouer_crash(etat, choix):
         t += 0.1
     print("\r" + " " * 40 + "\r", end="")
     if encaisse is not None:
-        gain = round(mise * encaisse, 2)
+        gain = arrondi_sup(mise * encaisse)
         etat['jetons'] += gain
         print(f" Encaissé à {encaisse:.2f}x : +{fmt(round(gain - mise, 2))}")
         print(f" Le crash est tombé à {cp:.2f}x")
@@ -800,7 +799,7 @@ def jouer_crash(etat, choix):
     else:
         pause()
         print(f" Crash à {cp:.2f}x ! Perdu -{fmt(mise)}")
-    etat['jetons'] = round(etat['jetons'], 2)
+    etat['jetons'] = arrondi_sup(etat['jetons'])
     print(f" Jetons : {fmt(etat['jetons'])}\n")
     return mise
 
@@ -928,8 +927,17 @@ def ligne_evenement(etat):
     return "MISE SANS RISQUE : si tu perds ta prochaine manche, la mise est remboursée"
 
 
+PLAGES_EVENEMENT = ((9 * 60, 12 * 60), (13 * 60 + 30, 17 * 60))
+
+
+def plage_evenement():
+    maintenant = datetime.now()
+    minutes = maintenant.hour * 60 + maintenant.minute
+    return any(debut <= minutes < fin for debut, fin in PLAGES_EVENEMENT)
+
+
 def tirer_evenement(etat):
-    if etat.get('tournoi') or etat.get('evenement') or random.random() >= EVENEMENT_CHANCE:
+    if etat.get('tournoi') or etat.get('evenement') or not plage_evenement() or random.random() >= EVENEMENT_CHANCE:
         return
     if random.random() < 0.6:
         etat['evenement'] = {'type': 'doree', 'jeu': etat['jeu'], 'reste': DUREE_DOREE, 'ecoulees': 0}
@@ -948,7 +956,7 @@ def appliquer_evenement(etat, engage, net_prov):
     if ev['type'] == 'doree':
         if etat['jeu'] == ev['jeu']:
             if net_prov > 0:
-                extra = round(net_prov, 2)
+                extra = arrondi_sup(net_prov)
                 etat['jetons'] += extra
                 etat['bonus'] += extra
                 print(f" Heure dorée : gain doublé, +{fmt(extra)} jetons en plus.")
@@ -960,7 +968,7 @@ def appliquer_evenement(etat, engage, net_prov):
             etat['evenement'] = None
         return
     if net_prov < 0:
-        remb = round(min(-net_prov, engage), 2)
+        remb = arrondi_sup(min(-net_prov, engage))
         etat['jetons'] += remb
         etat['bonus'] += remb
         print(f" Mise sans risque : {fmt(remb)} jetons remboursés.")
@@ -1000,8 +1008,6 @@ def succes_caches(etat, engage, net):
         s['creux'] = True
     if s['creux'] and etat['jetons'] > 1000:
         debloquer(etat, 'h_phenix')
-    if datetime.now().hour in (2, 3, 4):
-        debloquer(etat, 'h_nuit')
 
 
 def apres_gain(etat, engage, net_prov):

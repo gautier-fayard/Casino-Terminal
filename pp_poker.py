@@ -5,7 +5,7 @@ Ce module est charge par pp.py (installer). Il ne se lance pas tout seul.
 import random
 from itertools import combinations
 
-NEEDED = ['fmt', 'pause', 'corriger', 'fin', 'debloquer', 'compter', 'Quitter', 'demander_mise',
+NEEDED = ['fmt', 'arrondi_sup', 'pause', 'corriger', 'fin', 'debloquer', 'compter', 'Quitter', 'demander_mise',
           'RANGS', 'COULEURS', 'nouveau_sabot', 'ajouter_objectifs', 'JEUX_EXTRA', 'NOMS_JEUX',
           'CUMULS', 'NOMS_CUMULS']
 
@@ -222,7 +222,7 @@ def jouer_holdem(etat, mise):
     try:
         play = _tour_holdem(etat, mise, h, banque, board)
         if play is None:
-            etat['jetons'] = round(etat['jetons'], 2)
+            etat['jetons'] = arrondi_sup(etat['jetons'])
             return 2 * mise
         return engage + play * mise
     except Quitter:
@@ -288,7 +288,7 @@ def _tour_holdem(etat, mise, h, banque, board):
     if joueur > adverse:
         retour_play = 2 * play * mise
         retour_ante = 2 * mise if qualifie else mise
-        retour_blind = mise * (1 + bg)
+        retour_blind = mise + arrondi_sup(mise * bg)
         resultat = "gagné"
     elif joueur < adverse:
         retour_play = 0
@@ -299,7 +299,7 @@ def _tour_holdem(etat, mise, h, banque, board):
         retour_play, retour_ante, retour_blind = play * mise, mise, mise
         resultat = "égalité"
     etat['jetons'] += retour_play + retour_ante + retour_blind
-    etat['jetons'] = round(etat['jetons'], 2)
+    etat['jetons'] = arrondi_sup(etat['jetons'])
     mise_totale = (2 + play) * mise
     net = retour_play + retour_ante + retour_blind - mise_totale
     if resultat == "gagné":

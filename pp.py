@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import random
 import time
@@ -179,18 +180,26 @@ class Quitter(Exception):
     pass
 
 
+def arrondi_sup(x):
+    return math.ceil(round(x, 6))
+
+
 def fmt(x):
     x = round(x, 2)
     if x == int(x):
-        return str(int(x))
-    return f"{x:.2f}".rstrip('0').rstrip('.')
+        return f"{int(x):,}".replace(',', ' ')
+    entier, decimales = f"{abs(x):.2f}".rstrip('0').split('.')
+    signe = '-' if x < 0 else ''
+    return f"{signe}{int(entier):,}".replace(',', ' ') + '.' + decimales
 
 
 def lire_montant(texte, minimum=1):
-    """'250', '10k' (10 000), '1.5k' ou '2m' (2 000 000) -> entier >= minimum, sinon None."""
+    """'250', '10k' (10 000), '1.5k', '2m' (2 000 000) ou '1md' (1 000 000 000) -> entier >= minimum, sinon None."""
     texte = texte.strip().lower().replace(',', '.')
     facteur = 1
-    if texte.endswith('k'):
+    if texte.endswith('md'):
+        facteur, texte = 1000000000, texte[:-2]
+    elif texte.endswith('k'):
         facteur, texte = 1000, texte[:-1]
     elif texte.endswith('m'):
         facteur, texte = 1000000, texte[:-1]
@@ -507,9 +516,9 @@ def sauver(etat):
 def demander_mise(etat):
     jetons = etat['jetons']
     defaut = min(etat['derniere'], int(jetons))
-    invite = f"Mise (1-{int(jetons)}"
+    invite = f"Mise (1-{fmt(int(jetons))}"
     if defaut >= 1:
-        invite += f", Entrée = {defaut}, x = {defaut * 2}, / = {max(1, defaut // 2)}"
+        invite += f", Entrée = {fmt(defaut)}, x = {fmt(defaut * 2)}, / = {fmt(max(1, defaut // 2))}"
     invite += ", st = stats, j = jeu, q) > "
     while True:
         saisie = input(invite).strip().lower()
@@ -556,7 +565,7 @@ def demander_mise(etat):
             continue
         mise = lire_montant(saisie)
         if mise is None:
-            print(" Montant invalide (ex : 250, 10k).")
+            print(" Montant invalide (ex : 250, 10k, 2m, 1md).")
             continue
         if mise <= jetons:
             return mise
@@ -659,7 +668,7 @@ def regler_side(etat, side, c1, c2, u):
 
 def proposer_assurance(etat, mise, c1, c2, u):
     """Retourne la mise d'assurance prise (0 si refusée)."""
-    cout = mise / 2
+    cout = arrondi_sup(mise / 2)
     if etat['jetons'] < cout:
         return 0
     print(f" Ta main : {decrire([c1[0], c2[0]], [c1[1], c2[1]])}")
@@ -781,7 +790,7 @@ def jouer_manche(etat, mise, side):
             etat['jetons'] += mise
             print(" Blackjack partout. Égalité.")
         elif p_bj:
-            gain = mise * 1.5
+            gain = arrondi_sup(mise * 1.5)
             etat['jetons'] += mise + gain
             print(f" Blackjack ! +{fmt(gain)}")
             debloquer(etat, 'bj')
@@ -1016,7 +1025,7 @@ def jouer_baccara(etat, mise, pari, side):
         etat['jetons'] += mise
         print(" Pari principal : mise rendue")
     elif (tj > tb) == (pari == 'joueur'):
-        gain = mise if pari == 'joueur' else round(mise * 0.95, 2)
+        gain = mise if pari == 'joueur' else arrondi_sup(mise * 0.95)
         etat['jetons'] += mise + gain
         print(f" {pari.capitalize()} : +{fmt(gain)}")
     else:
@@ -1041,7 +1050,7 @@ def jouer_baccara(etat, mise, pari, side):
             else:
                 print(f" {libelle} : perdu -{fmt(side[cle])}")
 
-    etat['jetons'] = round(etat['jetons'], 2)
+    etat['jetons'] = arrondi_sup(etat['jetons'])
     print(f" Jetons : {fmt(etat['jetons'])}")
     print()
 
@@ -1250,7 +1259,7 @@ def jouer_poker(etat, mise):
     for seuil, cle in OBJECTIFS_POKER:
         if mult >= seuil:
             debloquer(etat, cle)
-    etat['jetons'] = round(etat['jetons'], 2)
+    etat['jetons'] = arrondi_sup(etat['jetons'])
     print(f" Jetons : {fmt(etat['jetons'])}")
     print()
 
@@ -1293,7 +1302,7 @@ def aide_roulette():
     print(" Avec le 0 : 0, 0/1, 0/2, 0/3, 0/1/2, 0/2/3, 0/1/2/3    (?0)")
     print(" Le tapis : ?tapis | Toutes les aides : ?tout")
     print(" Entrée = refaire les mêmes paris, x = les doubler, / = les diviser par 2, h = historique")
-    print(" Montants : 250, 10k (10 000), 1.5k, 2m (2 000 000)")
+    print(" Montants : 250, 10k (10 000), 1.5k, 2m (2 000 000), 1md (1 000 000 000)")
     print(" Sur le 0, les chances simples rendent la moitié de la mise.")
 
 
@@ -1558,12 +1567,13 @@ def jouer_roulette(etat, paris):
             if n == 0:
                 debloquer(etat, 'roul_zero')
         elif n == 0 and p['simple']:
-            etat['jetons'] += m / 2
-            print(f" {p['label']} : moitié rendue -{fmt(m / 2)}")
+            rendu = arrondi_sup(m / 2)
+            etat['jetons'] += rendu
+            print(f" {p['label']} : moitié rendue -{fmt(m - rendu)}")
         else:
             print(f" {p['label']} : perdu -{fmt(m)}")
 
-    etat['jetons'] = round(etat['jetons'], 2)
+    etat['jetons'] = arrondi_sup(etat['jetons'])
     print(f" Jetons : {fmt(etat['jetons'])}")
     print()
 
